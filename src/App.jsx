@@ -252,12 +252,27 @@ function App() {
         <>
           <section className="hero-panel">
             <div className="hero-copy">
-              <p className="eyebrow">Your latest watches</p>
-              <h1>Cinematic wall, then what next.</h1>
+              <div className="hero-orbit hero-orbit-a" aria-hidden="true"></div>
+              <div className="hero-orbit hero-orbit-b" aria-hidden="true"></div>
+              <div className="hero-beam" aria-hidden="true"></div>
+              <div className="hero-kicker">
+                <p className="eyebrow">Recent watches</p>
+                <span className="signal-pill">Now screening</span>
+              </div>
+              <h1>
+                Pick a film.
+                <br />
+                Find your next watch.
+              </h1>
               <p className="hero-text">
-                Browse your recent Letterboxd watches, pick a movie, and let the
-                app suggest nearby films you have not logged yet.
+                Your latest Letterboxd movies, remixed into a neon wall with
+                recommendations waiting behind each poster.
               </p>
+              <div className="hero-ribbon" aria-label="Feature highlights">
+                <span>Recent films</span>
+                <span>Quick picks</span>
+                <span>New recommendations</span>
+              </div>
               <div className="hero-metrics" aria-label="Import summary">
                 <article>
                   <span>{entries.length}</span>
@@ -324,20 +339,29 @@ function App() {
                   already watched.
                 </p>
               </div>
+              <div className="wall-banner" aria-hidden="true">
+                <span className="wall-banner-line"></span>
+                <p>NOW PLAYING YOUR LAST {visibleEntries.length || movieCount} WATCHES</p>
+                <span className="wall-banner-line"></span>
+              </div>
 
               {hasImportedEntries ? (
                 <div className="movie-grid" role="list">
                   {enrichedMovies.map((movie, index) => {
                     const poster = buildPosterUrl(movie.posterPath)
                     const isSelected = selectedMovieKey === movie.entryKey
+                    const isFeatured = index < 3
 
                     return (
                       <button
                         key={movie.entryKey}
-                        className={`movie-card${isSelected ? ' is-selected' : ''}`}
+                        className={`movie-card${isSelected ? ' is-selected' : ''}${
+                          isFeatured ? ' is-featured' : ''
+                        }`}
                         type="button"
                         onClick={() => setSelectedMovieKey(movie.entryKey)}
                       >
+                        {isFeatured && <span className="featured-tag">Featured</span>}
                         <span className="movie-index">
                           {String(index + 1).padStart(2, '0')}
                         </span>

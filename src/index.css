@@ -1,22 +1,29 @@
 :root {
-  --bg: #08111a;
-  --panel: rgba(10, 19, 29, 0.82);
-  --border: rgba(244, 233, 217, 0.14);
-  --border-soft: rgba(244, 233, 217, 0.08);
-  --text: #f4ead9;
-  --text-soft: #d2c6b3;
-  --text-muted: #a89f93;
-  --heading-color: #fff7eb;
-  --accent: #ffc476;
-  --panel-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
-  --heading: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
-  --body: 'Avenir Next', 'Segoe UI', sans-serif;
+  --bg: #030712;
+  --panel: linear-gradient(180deg, rgba(7, 17, 33, 0.9), rgba(4, 10, 20, 0.94));
+  --panel-solid: rgba(6, 15, 28, 0.9);
+  --border: rgba(111, 214, 255, 0.2);
+  --border-soft: rgba(111, 214, 255, 0.11);
+  --text: #dbeeff;
+  --text-soft: #b9d8f7;
+  --text-muted: #7f9fbe;
+  --heading-color: #f3fbff;
+  --accent: #55d6ff;
+  --accent-strong: #9ee7ff;
+  --accent-secondary: #1b86ff;
+  --panel-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  --glow-shadow: 0 0 28px rgba(85, 214, 255, 0.28);
+  --heading:
+    'Eurostile Extended', 'Microgramma D Extended', 'Orbitron', 'Arial Narrow',
+    sans-serif;
+  --body: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
 
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(255, 196, 118, 0.12), transparent 24%),
-    radial-gradient(circle at top right, rgba(113, 226, 180, 0.08), transparent 18%),
-    linear-gradient(180deg, #0b1420, #05090e 72%);
+    radial-gradient(circle at 15% 18%, rgba(85, 214, 255, 0.12), transparent 18%),
+    radial-gradient(circle at 85% 12%, rgba(27, 134, 255, 0.18), transparent 22%),
+    radial-gradient(circle at 50% 110%, rgba(85, 214, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, #050913, #02050b 74%);
   font: 16px/1.55 var(--body);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -44,10 +51,22 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(circle at center, black, transparent 85%);
+    radial-gradient(circle at 20% 24%, rgba(255, 255, 255, 0.85) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 62%, rgba(255, 255, 255, 0.45) 0 1px, transparent 1.5px),
+    linear-gradient(rgba(85, 214, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(85, 214, 255, 0.018) 1px, transparent 1px);
+  background-size: auto, auto, auto, 72px 72px, 72px 72px;
+  mask-image: radial-gradient(circle at center, black, transparent 82%);
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
 }
 
 a {
@@ -74,17 +93,20 @@ h2,
 h3 {
   margin: 0;
   font-family: var(--heading);
-  line-height: 0.95;
-  letter-spacing: -0.03em;
+  line-height: 1.02;
+  letter-spacing: 0.045em;
   color: var(--heading-color);
+  text-transform: uppercase;
 }
 
 h1 {
   font-size: clamp(3.4rem, 8vw, 5.8rem);
+  text-shadow: 0 0 22px rgba(85, 214, 255, 0.22);
 }
 
 h2 {
   font-size: clamp(1.9rem, 4vw, 3rem);
+  text-shadow: 0 0 14px rgba(85, 214, 255, 0.16);
 }
 
 h3 {
@@ -93,13 +115,14 @@ h3 {
 
 p {
   margin: 0;
+  line-height: 1.65;
 }
 
 .eyebrow {
   margin-bottom: 10px;
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--accent);
 }
