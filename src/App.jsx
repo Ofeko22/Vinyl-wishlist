@@ -17,6 +17,8 @@ function App() {
   const [wishlist, setWishlist] = useState(() => loadWishlist())
   const [selectedVinylId, setSelectedVinylId] = useState('')
   const [wallFilterQuery, setWallFilterQuery] = useState('')
+  const [draggedVinylId, setDraggedVinylId] = useState('')
+  const [dragTargetVinylId, setDragTargetVinylId] = useState('')
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogResults, setCatalogResults] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(false)
@@ -223,6 +225,57 @@ function App() {
     setSelectedVinylId(record.id)
   }
 
+  function handleDragStart(event, vinylId) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', vinylId)
+    setDraggedVinylId(vinylId)
+    setDragTargetVinylId(vinylId)
+  }
+
+  function handleDragOver(event, vinylId) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+
+    if (dragTargetVinylId !== vinylId) {
+      setDragTargetVinylId(vinylId)
+    }
+  }
+
+  function handleDrop(event, targetVinylId) {
+    event.preventDefault()
+
+    const sourceVinylId = draggedVinylId || event.dataTransfer.getData('text/plain')
+    if (!sourceVinylId || sourceVinylId === targetVinylId) {
+      clearDragState()
+      return
+    }
+
+    const visibleVinylIds = filteredWishlist.map((record) => record.id)
+    if (
+      !visibleVinylIds.includes(sourceVinylId) ||
+      !visibleVinylIds.includes(targetVinylId)
+    ) {
+      clearDragState()
+      return
+    }
+
+    setWishlist((current) =>
+      reorderVisibleSubset(current, visibleVinylIds, sourceVinylId, targetVinylId),
+    )
+    setSelectedVinylId(sourceVinylId)
+    setStatusMessage('Updated your ranking on the wall.')
+    clearDragState()
+  }
+
+  function handleDragEnd() {
+    clearDragState()
+  }
+
+  function clearDragState() {
+    setDraggedVinylId('')
+    setDragTargetVinylId('')
+  }
+
   const wishlistCount = wishlist.length
   const coverCount = wishlist.filter((record) => Boolean(record.coverUrl)).length
   const amazonReadyCount = wishlist.filter((record) => Boolean(record.amazonUrl)).length
@@ -380,8 +433,8 @@ function App() {
                 <h2>Wishlist wall</h2>
               </div>
               <p>
-                If a record has a direct Amazon URL, clicking its card opens Amazon
-                right away. Otherwise it stays in the spotlight view.
+                Drag cards to rank them. If a record has a direct Amazon URL,
+                clicking its card opens Amazon right away.
               </p>
             </div>
 
@@ -389,11 +442,21 @@ function App() {
               <div className="record-grid" role="list">
                 {filteredWishlist.map((record, index) => {
                   const isSelected = selectedVinyl?.id === record.id
+                  const isDragging = draggedVinylId === record.id
+                  const isDragTarget =
+                    draggedVinylId && dragTargetVinylId === record.id && !isDragging
 
                   return (
                     <article
                       key={record.id}
-                      className={`record-card${isSelected ? ' is-selected' : ''}`}
+                      className={`record-card${isSelected ? ' is-selected' : ''}${
+                        isDragging ? ' is-dragging' : ''
+                      }${isDragTarget ? ' is-drag-target' : ''}`}
+                      draggable
+                      onDragStart={(event) => handleDragStart(event, record.id)}
+                      onDragOver={(event) => handleDragOver(event, record.id)}
+                      onDrop={(event) => handleDrop(event, record.id)}
+                      onDragEnd={handleDragEnd}
                     >
                       <button
                         className="record-select"
@@ -522,3 +585,30 @@ function App() {
 }
 
 export default App
+
+function reorderVisibleSubset(records, visibleIds, sourceId, targetId) {
+  const visibleIdSet = new Set(visibleIds)
+  const visibleRecords = records.filter((record) => visibleIdSet.has(record.id))
+  const sourceIndex = visibleRecords.findIndex((record) => record.id === sourceId)
+  const targetIndex = visibleRecords.findIndex((record) => record.id === targetId)
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return records
+  }
+
+  const reorderedVisibleRecords = [...visibleRecords]
+  const [movedRecord] = reorderedVisibleRecords.splice(sourceIndex, 1)
+  reorderedVisibleRecords.splice(targetIndex, 0, movedRecord)
+
+  let reorderedIndex = 0
+
+  return records.map((record) => {
+    if (!visibleIdSet.has(record.id)) {
+      return record
+    }
+
+    const nextRecord = reorderedVisibleRecords[reorderedIndex]
+    reorderedIndex += 1
+    return nextRecord
+  })
+}

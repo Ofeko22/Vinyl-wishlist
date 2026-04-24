@@ -524,6 +524,12 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 243, 212, 0.88));
   box-shadow: 8px 8px 0 rgba(63, 31, 46, 0.1);
+  cursor: grab;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease,
+    background-color 0.18s ease;
 }
 
 .record-card.is-selected {
@@ -533,12 +539,27 @@
     0 0 0 4px rgba(28, 131, 138, 0.18);
 }
 
+.record-card.is-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+  transform: rotate(-2deg) scale(0.98);
+}
+
+.record-card.is-drag-target {
+  background:
+    linear-gradient(180deg, rgba(239, 249, 255, 0.98), rgba(209, 236, 255, 0.94));
+  box-shadow:
+    12px 12px 0 rgba(63, 31, 46, 0.14),
+    0 0 0 4px rgba(84, 169, 222, 0.28);
+}
+
 .record-select {
   display: block;
   width: 100%;
   padding: 12px;
   background: transparent;
   text-align: left;
+  cursor: inherit;
 }
 
 .record-badge {
