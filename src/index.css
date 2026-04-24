@@ -6,10 +6,9 @@
     radial-gradient(circle at 82% 24%, rgba(255, 255, 255, 0.82) 0 2px, transparent 3px),
     linear-gradient(180deg, rgba(248, 252, 255, 0.82), rgba(239, 247, 255, 0.92));
   --bg:
-    radial-gradient(circle at top left, rgba(90, 170, 255, 0.28), transparent 28%),
-    radial-gradient(circle at top right, rgba(72, 197, 214, 0.24), transparent 24%),
-    radial-gradient(circle at bottom center, rgba(154, 214, 255, 0.28), transparent 26%),
-    linear-gradient(180deg, #f6fbff, #d8ebff 58%, #c9f4f3);
+    radial-gradient(circle at top left, rgba(133, 204, 244, 0.34), transparent 24%),
+    radial-gradient(circle at top right, rgba(91, 170, 255, 0.26), transparent 24%),
+    linear-gradient(180deg, #f7fbff, #edf7ff 56%, #e8f4ff);
   --ink: #2a2940;
   --ink-soft: #52627b;
   --coral-strong: #347ac8;
@@ -54,15 +53,23 @@ body::after {
 
 body::before {
   background:
-    linear-gradient(rgba(57, 32, 45, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(57, 32, 45, 0.03) 1px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(circle at center, black, transparent 92%);
+    radial-gradient(ellipse 38% 84% at 50% 0%, rgba(188, 229, 248, 0.5) 99%, transparent
+          100%)
+      0 0 / 240px 380px repeat-x,
+    radial-gradient(ellipse 38% 84% at 50% 100%, rgba(188, 229, 248, 0.34) 99%, transparent
+          100%)
+      120px 190px / 240px 380px repeat-x,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.02));
+  opacity: 0.58;
 }
 
 body::after {
   background:
-    radial-gradient(circle at center, transparent 58%, rgba(255, 255, 255, 0.34) 100%);
+    radial-gradient(circle at center, transparent 58%, rgba(255, 255, 255, 0.26) 100%);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.14;
 }
 
 a {

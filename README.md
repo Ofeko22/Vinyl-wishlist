@@ -17,6 +17,19 @@ npm install
 npm run dev
 ```
 
+### Easier local launch on Mac
+
+This repo includes [Start Wax Wishlist.command](/Users/ofeko/Pypy/Start%20Wax%20Wishlist.command), so you can start the local app by double-clicking that file in Finder instead of typing the command each time.
+
+What it does:
+
+- switches into the project folder
+- installs dependencies if `node_modules` is missing
+- runs the Vite dev server
+- opens the app in your browser automatically
+
+Keep the Terminal window open while the local app is running.
+
 ## GitHub Pages deployment
 
 This repo includes a GitHub Actions workflow that deploys the built site to GitHub Pages whenever you push to `main` or `master`.
@@ -26,8 +39,16 @@ This repo includes a GitHub Actions workflow that deploys the built site to GitH
 1. Push this repo to GitHub.
 2. In GitHub, open `Settings` -> `Pages`.
 3. Set the source to `GitHub Actions`.
+4. Save the setting, then rerun the latest workflow if the earlier one failed before Pages was enabled.
+5. After the workflow succeeds, GitHub will show a `Visit site` link in the Pages settings.
 
 After that, every push will publish the latest version.
+
+The published URL will usually be:
+
+`https://ofeko22.github.io/Vinyl-wishlist/`
+
+That URL format is the standard GitHub Pages pattern for a project repo, inferred from your repo name and account.
 
 ## Notes
 

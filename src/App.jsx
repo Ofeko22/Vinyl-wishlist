@@ -466,19 +466,21 @@ function App() {
                         <span className="record-badge">
                           #{String(index + 1).padStart(2, '0')}
                         </span>
-                        {record.coverUrl ? (
-                          <img
-                            className="record-cover"
-                            src={record.coverUrl}
-                            alt={`${record.album} cover`}
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="record-cover fallback-cover" aria-hidden="true">
-                            <span>{record.album.slice(0, 1)}</span>
-                          </div>
-                        )}
+                        <div className="cover-stack record-art">
+                          {record.coverUrl ? (
+                            <img
+                              className="record-cover"
+                              src={record.coverUrl}
+                              alt={`${record.album} cover`}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="record-cover fallback-cover" aria-hidden="true">
+                              <span>{record.album.slice(0, 1)}</span>
+                            </div>
+                          )}
+                        </div>
                         <div className="record-meta">
                           <h3>{record.album}</h3>
                           <p>{record.artist || 'Unknown artist'}</p>
@@ -533,18 +535,20 @@ function App() {
 
             {selectedVinyl ? (
               <article className="spotlight-body">
-                {selectedVinyl.coverUrl ? (
-                  <img
-                    className="spotlight-cover"
-                    src={selectedVinyl.coverUrl}
-                    alt={`${selectedVinyl.album} cover`}
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="spotlight-cover fallback-cover" aria-hidden="true">
-                    <span>{selectedVinyl.album.slice(0, 1)}</span>
-                  </div>
-                )}
+                <div className="cover-stack spotlight-art">
+                  {selectedVinyl.coverUrl ? (
+                    <img
+                      className="spotlight-cover"
+                      src={selectedVinyl.coverUrl}
+                      alt={`${selectedVinyl.album} cover`}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="spotlight-cover fallback-cover" aria-hidden="true">
+                      <span>{selectedVinyl.album.slice(0, 1)}</span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="spotlight-copy">
                   <p className="spotlight-kicker">{selectedVinyl.artist || 'Unknown artist'}</p>
