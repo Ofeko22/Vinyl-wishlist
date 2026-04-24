@@ -355,6 +355,15 @@ function App() {
   }
 
   const wishlistCount = wishlist.length
+  const topStripRecords =
+    wishlist.slice(0, 6).length > 0
+      ? wishlist.slice(0, 6)
+      : Array.from({ length: 4 }, (_, index) => ({
+          id: `placeholder-${index}`,
+          album: '',
+          coverUrl: '',
+        }))
+
   return (
     <main className="page-shell">
       <div className="blog-frame">
@@ -367,13 +376,26 @@ function App() {
           <p>vinyl-wishlist.exe</p>
         </header>
 
-        <section className="top-status-bar" aria-label="Wishlist status">
-          <p className="eyebrow">Wall status</p>
-          <div className="top-status-pill">
-            <span className="top-status-count">{wishlistCount}</span>
-            <span className="top-status-copy">
-              {wishlistCount === 1 ? 'record on the wall' : 'records on the wall'}
-            </span>
+        <section
+          className="top-status-bar"
+          aria-label={`${wishlistCount} ${wishlistCount === 1 ? 'record' : 'records'} on the wall`}
+        >
+          <div className="top-vinyl-strip" aria-hidden="true">
+            {topStripRecords.map((record, index) => (
+              <div
+                key={record.id}
+                className={`mini-vinyl mini-vinyl--${(index % 4) + 1}`}
+                style={{ '--mini-delay': `${index * 0.08}s` }}
+              >
+                <div className="mini-vinyl__label">
+                  {record.coverUrl ? (
+                    <img src={record.coverUrl} alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span>{record.album.slice(0, 1) || ''}</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
