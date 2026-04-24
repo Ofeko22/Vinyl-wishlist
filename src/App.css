@@ -57,7 +57,7 @@
 }
 
 .browser-bar,
-.priority-layout,
+.top-status-bar,
 .toolbar-card,
 .content-layout {
   position: relative;
@@ -112,22 +112,15 @@
   text-transform: uppercase;
 }
 
-.priority-layout,
 .content-layout {
   display: grid;
   gap: 22px;
-  padding: 24px;
-}
-
-.priority-layout {
-  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
-  align-items: start;
 }
 
 .content-layout {
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.72fr);
   align-items: start;
-  padding-top: 0;
+  padding: 8px 24px 24px;
 }
 
 .widget-card,
@@ -148,6 +141,56 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(26px) saturate(135%);
   -webkit-backdrop-filter: blur(26px) saturate(135%);
+}
+
+.top-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px 8px;
+}
+
+.top-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.12)),
+    rgba(14, 25, 38, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 12px 24px rgba(15, 25, 39, 0.08);
+}
+
+.top-status-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18)),
+    rgba(93, 158, 208, 0.18);
+  color: rgba(17, 31, 48, 0.88);
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.top-status-copy {
+  color: rgba(20, 37, 58, 0.72);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .widget-card::before,
@@ -172,6 +215,10 @@
   padding: 26px;
 }
 
+.search-priority-card--sidebar .search-priority-copy h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
 .search-priority-card::after {
   content: '';
   position: absolute;
@@ -194,6 +241,11 @@
 .search-priority-copy {
   display: grid;
   gap: 10px;
+}
+
+.side-column {
+  display: grid;
+  gap: 18px;
 }
 
 .hero-card--compact {
@@ -314,15 +366,6 @@
   gap: 14px;
 }
 
-.toolbar-card {
-  margin: 0 24px 22px;
-  padding: 20px 24px;
-}
-
-.toolbar-card--single {
-  display: flex;
-}
-
 .filter-field,
 .add-form label {
   display: flex;
@@ -338,6 +381,16 @@
 
 .filter-field {
   flex: 1;
+}
+
+.filter-field--compact {
+  min-width: min(260px, 100%);
+  max-width: 280px;
+  margin-left: auto;
+}
+
+.filter-field--compact input {
+  padding-block: 12px;
 }
 
 .search-stack input,
@@ -519,6 +572,13 @@
   margin-bottom: 18px;
 }
 
+.section-tools {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+  max-width: 320px;
+}
+
 .section-heading h2 {
   font-size: clamp(1.4rem, 3vw, 2.3rem);
   color: rgba(22, 34, 51, 0.92);
@@ -526,6 +586,7 @@
 
 .section-heading p {
   max-width: 28rem;
+  text-align: right;
 }
 
 .record-grid {
@@ -774,6 +835,13 @@
   justify-content: flex-start;
 }
 
+.search-status-note {
+  margin: 0;
+  color: rgba(22, 39, 59, 0.62);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -813,7 +881,6 @@
 }
 
 @media (max-width: 1080px) {
-  .priority-layout,
   .content-layout,
   .content-layout--compact {
     grid-template-columns: 1fr;
@@ -821,6 +888,24 @@
 
   .record-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .section-heading {
+    align-items: start;
+  }
+
+  .section-tools {
+    justify-items: stretch;
+    max-width: none;
+  }
+
+  .section-heading p {
+    text-align: left;
+  }
+
+  .filter-field--compact {
+    margin-left: 0;
+    max-width: none;
   }
 }
 
@@ -830,19 +915,13 @@
   }
 
   .browser-bar,
-  .priority-layout,
   .content-layout,
-  .toolbar-card {
+  .top-status-bar {
     padding-inline: 16px;
   }
 
-  .priority-layout,
   .content-layout {
     gap: 18px;
-  }
-
-  .toolbar-card {
-    margin-inline: 12px;
   }
 
   .hero-stats,
@@ -850,6 +929,7 @@
     grid-template-columns: 1fr;
   }
 
+  .top-status-bar,
   .section-heading,
   .record-actions {
     flex-direction: column;

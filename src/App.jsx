@@ -277,9 +277,6 @@ function App() {
   }
 
   const wishlistCount = wishlist.length
-  const coverCount = wishlist.filter((record) => Boolean(record.coverUrl)).length
-  const amazonReadyCount = wishlist.filter((record) => Boolean(record.amazonUrl)).length
-
   return (
     <main className="page-shell">
       <div className="blog-frame">
@@ -292,137 +289,14 @@ function App() {
           <p>vinyl-wishlist.exe</p>
         </header>
 
-        <section className="priority-layout">
-          <section className="widget-card search-priority-card">
-            <div className="search-priority-copy">
-              <p className="eyebrow">Search and add</p>
-              <h1>Wax Wishlist</h1>
-              <p className="hero-copy">
-                Search first, pick the right album, and drop it onto the wall in one
-                click.
-              </p>
-            </div>
-
-            <div className="search-stack search-stack--priority">
-              <label className="sr-only" htmlFor="catalog-search-input">
-                Search the album catalog
-              </label>
-              <input
-                id="catalog-search-input"
-                name="catalogQuery"
-                type="text"
-                value={catalogQuery}
-                onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="Search artist or album..."
-                autoComplete="off"
-              />
-
-              {catalogQuery.trim() ? (
-                <div className="search-dropdown" role="listbox" aria-label="Album results">
-                  {catalogLoading ? (
-                    <p className="dropdown-status">Searching the stacks...</p>
-                  ) : null}
-
-                  {!catalogLoading && catalogError ? (
-                    <p className="dropdown-status is-error">{catalogError}</p>
-                  ) : null}
-
-                  {!catalogLoading && !catalogError && catalogResults.length > 0
-                    ? catalogResults.map((result) => (
-                        <button
-                          key={result.id}
-                          className="dropdown-option"
-                          type="button"
-                          onClick={() => handleAddCatalogResult(result)}
-                        >
-                          {result.coverUrl ? (
-                            <img
-                              className="dropdown-cover"
-                              src={result.coverUrl}
-                              alt=""
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div
-                              className="dropdown-cover fallback-cover"
-                              aria-hidden="true"
-                            >
-                              <span>{result.album.slice(0, 1)}</span>
-                            </div>
-                          )}
-
-                          <span className="dropdown-copy">
-                            <strong>{result.album}</strong>
-                            <span>{result.artist || 'Unknown artist'}</span>
-                            <span>
-                              {result.year || 'Year unknown'}
-                              {result.genre ? ` • ${result.genre}` : ''}
-                            </span>
-                          </span>
-                        </button>
-                      ))
-                    : null}
-
-                  {!catalogLoading &&
-                  !catalogError &&
-                  catalogQuery.trim() &&
-                  catalogResults.length === 0 ? (
-                    <p className="dropdown-status">No matches yet for that search.</p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="catalog-prompt">
-                  Start typing and the drop list opens here.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <aside className="hero-card hero-card--compact">
-            <p className="eyebrow">Wall status</p>
-            <div className="marquee marquee--compact" aria-label="Moving status banner">
-              <div className="marquee-track">
-                <span>MORE RECORDS</span>
-                <span>FASTER SEARCH</span>
-                <span>RETRO BLOG MODE</span>
-                <span>MORE RECORDS</span>
-                <span>FASTER SEARCH</span>
-                <span>RETRO BLOG MODE</span>
-              </div>
-            </div>
-
-            <div className="hero-stats hero-stats--compact">
-              <article>
-                <span>{wishlistCount}</span>
-                <p>Records on deck</p>
-              </article>
-              <article>
-                <span>{coverCount}</span>
-                <p>With cover art</p>
-              </article>
-              <article>
-                <span>{amazonReadyCount}</span>
-                <p>Direct Amazon links</p>
-              </article>
-            </div>
-
-            <div className="status-note">
-              <strong>Status:</strong> {statusMessage}
-            </div>
-          </aside>
-        </section>
-
-        <section className="toolbar-card toolbar-card--single">
-          <label className="filter-field">
-            <span>Filter your wall</span>
-            <input
-              type="search"
-              value={wallFilterQuery}
-              onChange={(event) => setWallFilterQuery(event.target.value)}
-              placeholder="Search album, artist, genre, or notes"
-            />
-          </label>
+        <section className="top-status-bar" aria-label="Wishlist status">
+          <p className="eyebrow">Wall status</p>
+          <div className="top-status-pill">
+            <span className="top-status-count">{wishlistCount}</span>
+            <span className="top-status-copy">
+              {wishlistCount === 1 ? 'record on the wall' : 'records on the wall'}
+            </span>
+          </div>
         </section>
 
         <section className="content-layout content-layout--compact">
@@ -432,10 +306,21 @@ function App() {
                 <p className="eyebrow">The stack</p>
                 <h2>Wishlist wall</h2>
               </div>
-              <p>
-                Drag cards to rank them. If a record has a direct Amazon URL,
-                clicking its card opens Amazon right away.
-              </p>
+              <div className="section-tools">
+                <p>
+                  Drag cards to rank them. If a record has a direct Amazon URL,
+                  clicking its card opens Amazon right away.
+                </p>
+                <label className="filter-field filter-field--compact">
+                  <span>Filter</span>
+                  <input
+                    type="search"
+                    value={wallFilterQuery}
+                    onChange={(event) => setWallFilterQuery(event.target.value)}
+                    placeholder="Search wall"
+                  />
+                </label>
+              </div>
             </div>
 
             {filteredWishlist.length > 0 ? (
@@ -525,62 +410,151 @@ function App() {
             )}
           </section>
 
-          <aside className="spotlight-card">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Featured record</p>
-                <h2>Side A Spotlight</h2>
+          <aside className="side-column">
+            <section className="widget-card search-priority-card search-priority-card--sidebar">
+              <div className="search-priority-copy">
+                <p className="eyebrow">Search and add</p>
+                <h1>Find a record</h1>
+                <p className="hero-copy">
+                  Search, choose the right pressing, and add it straight to the wall.
+                </p>
               </div>
-            </div>
 
-            {selectedVinyl ? (
-              <article className="spotlight-body">
-                <div className="cover-stack spotlight-art">
-                  {selectedVinyl.coverUrl ? (
-                    <img
-                      className="spotlight-cover"
-                      src={selectedVinyl.coverUrl}
-                      alt={`${selectedVinyl.album} cover`}
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="spotlight-cover fallback-cover" aria-hidden="true">
-                      <span>{selectedVinyl.album.slice(0, 1)}</span>
-                    </div>
-                  )}
-                </div>
+              <div className="search-stack search-stack--priority">
+                <label className="sr-only" htmlFor="catalog-search-input">
+                  Search the album catalog
+                </label>
+                <input
+                  id="catalog-search-input"
+                  name="catalogQuery"
+                  type="text"
+                  value={catalogQuery}
+                  onChange={(event) => setCatalogQuery(event.target.value)}
+                  placeholder="Search artist or album..."
+                  autoComplete="off"
+                />
 
-                <div className="spotlight-copy">
-                  <p className="spotlight-kicker">{selectedVinyl.artist || 'Unknown artist'}</p>
-                  <h3>{selectedVinyl.album}</h3>
-                  <div className="spotlight-tags">
-                    <span>{selectedVinyl.year || 'Year unknown'}</span>
-                    <span>{selectedVinyl.genre || 'Genre TBD'}</span>
+                {catalogQuery.trim() ? (
+                  <div className="search-dropdown" role="listbox" aria-label="Album results">
+                    {catalogLoading ? (
+                      <p className="dropdown-status">Searching the stacks...</p>
+                    ) : null}
+
+                    {!catalogLoading && catalogError ? (
+                      <p className="dropdown-status is-error">{catalogError}</p>
+                    ) : null}
+
+                    {!catalogLoading && !catalogError && catalogResults.length > 0
+                      ? catalogResults.map((result) => (
+                          <button
+                            key={result.id}
+                            className="dropdown-option"
+                            type="button"
+                            onClick={() => handleAddCatalogResult(result)}
+                          >
+                            {result.coverUrl ? (
+                              <img
+                                className="dropdown-cover"
+                                src={result.coverUrl}
+                                alt=""
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div
+                                className="dropdown-cover fallback-cover"
+                                aria-hidden="true"
+                              >
+                                <span>{result.album.slice(0, 1)}</span>
+                              </div>
+                            )}
+
+                            <span className="dropdown-copy">
+                              <strong>{result.album}</strong>
+                              <span>{result.artist || 'Unknown artist'}</span>
+                              <span>
+                                {result.year || 'Year unknown'}
+                                {result.genre ? ` • ${result.genre}` : ''}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      : null}
+
+                    {!catalogLoading &&
+                    !catalogError &&
+                    catalogQuery.trim() &&
+                    catalogResults.length === 0 ? (
+                      <p className="dropdown-status">No matches yet for that search.</p>
+                    ) : null}
                   </div>
-                  <p>
-                    {selectedVinyl.notes ||
-                      'No notes yet. This card is now mainly here to spotlight the cover and the basic album info.'}
-                  </p>
-                </div>
+                ) : (
+                  <p className="catalog-prompt">Start typing and the drop list opens here.</p>
+                )}
 
-                <div className="spotlight-actions">
-                  <a
-                    className="primary-button"
-                    href={selectedVinyl.amazonUrl || buildAmazonSearchUrl(selectedVinyl)}
-                    target="_blank"
-                    rel="noreferrer"
-                    referrerPolicy="no-referrer"
-                  >
-                    {selectedVinyl.amazonUrl ? 'Open Amazon listing' : 'Search Amazon'}
-                  </a>
-                </div>
-              </article>
-            ) : (
-              <div className="empty-state spotlight-empty">
-                <h3>Your wall is ready for its first record.</h3>
-                <p>Search for an album above and click a match to add it instantly.</p>
+                <p className="search-status-note">{statusMessage}</p>
               </div>
-            )}
+            </section>
+
+            <section className="spotlight-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Featured record</p>
+                  <h2>Side A Spotlight</h2>
+                </div>
+              </div>
+
+              {selectedVinyl ? (
+                <article className="spotlight-body">
+                  <div className="cover-stack spotlight-art">
+                    {selectedVinyl.coverUrl ? (
+                      <img
+                        className="spotlight-cover"
+                        src={selectedVinyl.coverUrl}
+                        alt={`${selectedVinyl.album} cover`}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="spotlight-cover fallback-cover" aria-hidden="true">
+                        <span>{selectedVinyl.album.slice(0, 1)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="spotlight-copy">
+                    <p className="spotlight-kicker">
+                      {selectedVinyl.artist || 'Unknown artist'}
+                    </p>
+                    <h3>{selectedVinyl.album}</h3>
+                    <div className="spotlight-tags">
+                      <span>{selectedVinyl.year || 'Year unknown'}</span>
+                      <span>{selectedVinyl.genre || 'Genre TBD'}</span>
+                    </div>
+                    <p>
+                      {selectedVinyl.notes ||
+                        'No notes yet. This card is now mainly here to spotlight the cover and the basic album info.'}
+                    </p>
+                  </div>
+
+                  <div className="spotlight-actions">
+                    <a
+                      className="primary-button"
+                      href={selectedVinyl.amazonUrl || buildAmazonSearchUrl(selectedVinyl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      referrerPolicy="no-referrer"
+                    >
+                      {selectedVinyl.amazonUrl ? 'Open Amazon listing' : 'Search Amazon'}
+                    </a>
+                  </div>
+                </article>
+              ) : (
+                <div className="empty-state spotlight-empty">
+                  <h3>Your wall is ready for its first record.</h3>
+                  <p>Search for an album on the right and click a match to add it instantly.</p>
+                </div>
+              )}
+            </section>
           </aside>
         </section>
       </div>
