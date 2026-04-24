@@ -368,12 +368,12 @@ function App() {
     <main className="page-shell">
       <div className="blog-frame">
         <header className="browser-bar">
-          <div className="browser-lights" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
+          <div className="browser-brand" aria-label="Vinyl Wishlist">
+            <span className="browser-record" aria-hidden="true">
+              <span className="browser-record__label"></span>
+            </span>
+            <p>Vinyl Wishlist</p>
           </div>
-          <p>vinyl-wishlist.exe</p>
         </header>
 
         <section
