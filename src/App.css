@@ -635,7 +635,7 @@
     box-shadow 0.26s ease,
     opacity 0.18s ease,
     background-color 0.18s ease;
-  animation: cardReveal 0.55s cubic-bezier(0.22, 0.8, 0.22, 1) both;
+  will-change: transform, translate;
 }
 
 .record-card.is-selected {
@@ -660,6 +660,10 @@
     0 24px 38px rgba(14, 26, 42, 0.14),
     0 0 0 1px rgba(188, 232, 255, 0.44),
     inset 0 1px 0 rgba(255, 255, 255, 0.44);
+}
+
+.record-card.is-new {
+  animation: jumpIntoWall 0.82s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
 
 .record-card:hover:not(.is-dragging) {
@@ -960,15 +964,28 @@
   }
 }
 
-@keyframes cardReveal {
-  from {
+@keyframes jumpIntoWall {
+  0% {
     opacity: 0;
-    transform: translateY(18px) scale(0.985);
+    translate: 0 -32px;
+    scale: 0.9;
   }
 
-  to {
+  48% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    translate: 0 10px;
+    scale: 1.03;
+  }
+
+  72% {
+    translate: 0 -6px;
+    scale: 0.995;
+  }
+
+  100% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
   }
 }
 
@@ -1060,22 +1077,6 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.36),
       0 16px 28px rgba(15, 25, 39, 0.12);
   }
-}
-
-.record-card:nth-child(2n) {
-  animation-delay: 0.05s;
-}
-
-.record-card:nth-child(3n) {
-  animation-delay: 0.1s;
-}
-
-.record-card:nth-child(4n) {
-  animation-delay: 0.15s;
-}
-
-.record-card:nth-child(5n) {
-  animation-delay: 0.2s;
 }
 
 @media (prefers-reduced-motion: reduce) {

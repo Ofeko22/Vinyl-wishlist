@@ -1,4 +1,11 @@
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react'
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import './App.css'
 import { findAlbumCatalogMatch, searchAlbumCatalog } from './lib/albumCatalog.js'
 import {
@@ -28,6 +35,10 @@ function App() {
   const catalogRequestRef = useRef(0)
   const repairAbortRef = useRef(null)
   const attemptedRepairsRef = useRef(new Set())
+  const recordNodesRef = useRef(new Map())
+  const previousRecordRectsRef = useRef(new Map())
+  const newVinylTimeoutRef = useRef(0)
+  const [newlyAddedVinylId, setNewlyAddedVinylId] = useState('')
 
   const deferredWallFilterQuery = useDeferredValue(wallFilterQuery.trim())
   const filteredWishlist = wishlist.filter((record) =>
@@ -48,8 +59,52 @@ function App() {
     return () => {
       catalogAbortRef.current?.abort()
       repairAbortRef.current?.abort()
+      window.clearTimeout(newVinylTimeoutRef.current)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const nextRecordRects = new Map()
+
+    filteredWishlist.forEach((record) => {
+      const node = recordNodesRef.current.get(record.id)
+      if (!node) {
+        return
+      }
+
+      const currentRect = node.getBoundingClientRect()
+      const previousRect = previousRecordRectsRef.current.get(record.id)
+      nextRecordRects.set(record.id, currentRect)
+
+      if (!previousRect) {
+        return
+      }
+
+      const deltaX = previousRect.left - currentRect.left
+      const deltaY = previousRect.top - currentRect.top
+
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+        return
+      }
+
+      node.animate(
+        [
+          {
+            translate: `${deltaX}px ${deltaY}px`,
+          },
+          {
+            translate: '0 0',
+          },
+        ],
+        {
+          duration: 380,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        },
+      )
+    })
+
+    previousRecordRectsRef.current = nextRecordRects
+  }, [filteredWishlist])
 
   useEffect(() => {
     if (wishlist.length === 0) {
@@ -210,10 +265,26 @@ function App() {
       setSelectedVinylId(nextVinyl.id)
     })
 
+    window.clearTimeout(newVinylTimeoutRef.current)
+    setNewlyAddedVinylId(nextVinyl.id)
+    newVinylTimeoutRef.current = window.setTimeout(() => {
+      setNewlyAddedVinylId((current) => (current === nextVinyl.id ? '' : current))
+    }, 950)
+
     setCatalogQuery('')
     setCatalogResults([])
     setCatalogError('')
     setStatusMessage(`Added ${nextVinyl.album} to the wall.`)
+  }
+
+  function setRecordNode(vinylId, node) {
+    if (node) {
+      recordNodesRef.current.set(vinylId, node)
+      return
+    }
+
+    recordNodesRef.current.delete(vinylId)
+    previousRecordRectsRef.current.delete(vinylId)
   }
 
   function handleRecordClick(record) {
@@ -226,8 +297,15 @@ function App() {
   }
 
   function handleDragStart(event, vinylId) {
+    const recordNode = recordNodesRef.current.get(vinylId)
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', vinylId)
+
+    if (recordNode) {
+      const { width } = recordNode.getBoundingClientRect()
+      event.dataTransfer.setDragImage(recordNode, Math.min(width / 2, 120), 40)
+    }
+
     setDraggedVinylId(vinylId)
     setDragTargetVinylId(vinylId)
   }
@@ -336,7 +414,10 @@ function App() {
                       key={record.id}
                       className={`record-card${isSelected ? ' is-selected' : ''}${
                         isDragging ? ' is-dragging' : ''
-                      }${isDragTarget ? ' is-drag-target' : ''}`}
+                      }${isDragTarget ? ' is-drag-target' : ''}${
+                        newlyAddedVinylId === record.id ? ' is-new' : ''
+                      }`}
+                      ref={(node) => setRecordNode(record.id, node)}
                       draggable
                       onDragStart={(event) => handleDragStart(event, record.id)}
                       onDragOver={(event) => handleDragOver(event, record.id)}
