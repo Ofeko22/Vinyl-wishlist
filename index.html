@@ -13,9 +13,13 @@
         font-src 'self' https://fonts.gstatic.com data:;
         img-src 'self' data: https:;
         connect-src 'self' https://itunes.apple.com;
+        media-src 'self' data: https:;
+        manifest-src 'self';
+        worker-src 'self' blob:;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
+        frame-src 'none';
         frame-ancestors 'none';
         upgrade-insecure-requests;
       "
