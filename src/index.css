@@ -1,30 +1,28 @@
-:root {
-  --bg: #030712;
-  --panel: linear-gradient(180deg, rgba(7, 17, 33, 0.9), rgba(4, 10, 20, 0.94));
-  --panel-solid: rgba(6, 15, 28, 0.9);
-  --border: rgba(111, 214, 255, 0.2);
-  --border-soft: rgba(111, 214, 255, 0.11);
-  --text: #dbeeff;
-  --text-soft: #b9d8f7;
-  --text-muted: #7f9fbe;
-  --heading-color: #f3fbff;
-  --accent: #55d6ff;
-  --accent-strong: #9ee7ff;
-  --accent-secondary: #1b86ff;
-  --panel-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
-  --glow-shadow: 0 0 28px rgba(85, 214, 255, 0.28);
-  --heading:
-    'Eurostile Extended', 'Microgramma D Extended', 'Orbitron', 'Arial Narrow',
-    sans-serif;
-  --body: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Bungee+Shade&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap');
 
-  color: var(--text);
-  background:
-    radial-gradient(circle at 15% 18%, rgba(85, 214, 255, 0.12), transparent 18%),
-    radial-gradient(circle at 85% 12%, rgba(27, 134, 255, 0.18), transparent 22%),
-    radial-gradient(circle at 50% 110%, rgba(85, 214, 255, 0.1), transparent 32%),
-    linear-gradient(180deg, #050913, #02050b 74%);
-  font: 16px/1.55 var(--body);
+:root {
+  --paper:
+    radial-gradient(circle at 10% 18%, rgba(255, 255, 255, 0.88) 0 2px, transparent 3px),
+    radial-gradient(circle at 82% 24%, rgba(255, 255, 255, 0.82) 0 2px, transparent 3px),
+    linear-gradient(180deg, rgba(248, 252, 255, 0.82), rgba(239, 247, 255, 0.92));
+  --bg:
+    radial-gradient(circle at top left, rgba(90, 170, 255, 0.28), transparent 28%),
+    radial-gradient(circle at top right, rgba(72, 197, 214, 0.24), transparent 24%),
+    radial-gradient(circle at bottom center, rgba(154, 214, 255, 0.28), transparent 26%),
+    linear-gradient(180deg, #f6fbff, #d8ebff 58%, #c9f4f3);
+  --ink: #2a2940;
+  --ink-soft: #52627b;
+  --coral-strong: #347ac8;
+  --teal-strong: #166f95;
+  --body: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+  --display: 'Bungee Shade', 'Impact', fantasy;
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  font-family: var(--body);
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -43,30 +41,28 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg);
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(circle at 20% 24%, rgba(255, 255, 255, 0.85) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 62% 62%, rgba(255, 255, 255, 0.45) 0 1px, transparent 1.5px),
-    linear-gradient(rgba(85, 214, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(85, 214, 255, 0.018) 1px, transparent 1px);
-  background-size: auto, auto, auto, 72px 72px, 72px 72px;
-  mask-image: radial-gradient(circle at center, black, transparent 82%);
-}
-
+body::before,
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
+}
+
+body::before {
   background:
-    radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
+    linear-gradient(rgba(57, 32, 45, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 32, 45, 0.03) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(circle at center, black, transparent 92%);
+}
+
+body::after {
+  background:
+    radial-gradient(circle at center, transparent 58%, rgba(255, 255, 255, 0.34) 100%);
 }
 
 a {
@@ -74,7 +70,8 @@ a {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -82,9 +79,14 @@ button {
   border: 0;
 }
 
+img {
+  display: block;
+  max-width: 100%;
+}
+
 #root {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1480px;
   margin: 0 auto;
 }
 
@@ -92,37 +94,20 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-family: var(--heading);
-  line-height: 1.02;
-  letter-spacing: 0.045em;
-  color: var(--heading-color);
-  text-transform: uppercase;
+  color: var(--ink);
 }
 
-h1 {
-  font-size: clamp(3.4rem, 8vw, 5.8rem);
-  text-shadow: 0 0 22px rgba(85, 214, 255, 0.22);
-}
-
+h1,
 h2 {
-  font-size: clamp(1.9rem, 4vw, 3rem);
-  text-shadow: 0 0 14px rgba(85, 214, 255, 0.16);
+  font-family: var(--display);
+  letter-spacing: 0.04em;
 }
 
 h3 {
-  font-size: 1.05rem;
+  font-family: var(--body);
+  line-height: 1.15;
 }
 
 p {
   margin: 0;
-  line-height: 1.65;
-}
-
-.eyebrow {
-  margin-bottom: 10px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
 }

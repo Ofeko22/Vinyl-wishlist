@@ -1,40 +1,36 @@
-# After Credits
+# Wax Wishlist
 
-Local web app for exploring your latest Letterboxd watches and getting similar movie recommendations.
+Static React app for showing a vinyl wishlist with cover art, quick filtering, and Amazon lookup links.
 
 ## What it does
 
-- Imports your exported Letterboxd `diary.csv` or `watched.csv`
-- Sorts by most recently watched and shows the latest entries as an interactive wall
-- Matches those films against TMDb for posters, backdrops, and metadata
-- Fetches TMDb recommendations and similar titles when you click a movie
-- Filters out titles that already appear in your imported watch history
+- Shows your wishlist as a searchable wall of record cards
+- Searches Apple's public album catalog from inside the app as you type
+- Lets you add an album directly from the search dropdown with one click
+- Uses direct Amazon links when you provide them, or falls back to an Amazon search link
+- Stores your current list in `localStorage`
 
-## Why this uses exports instead of the Letterboxd API
-
-This project is set up for a local personal workflow. Importing your Letterboxd export keeps the app usable without depending on beta API access.
-
-## Setup
-
-1. Create a TMDb account and generate a v4 read access token.
-2. Either set the token in a local `.env` file or paste it into the app.
-3. Run the app locally:
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-4. Export your Letterboxd data and import `diary.csv` or `watched.csv` into the app.
+## GitHub Pages deployment
 
-### Optional `.env`
+This repo includes a GitHub Actions workflow that deploys the built site to GitHub Pages whenever you push to `main` or `master`.
 
-```bash
-VITE_TMDB_READ_ACCESS_TOKEN=your_tmdb_v4_read_access_token
-```
+### One-time GitHub setup
+
+1. Push this repo to GitHub.
+2. In GitHub, open `Settings` -> `Pages`.
+3. Set the source to `GitHub Actions`.
+
+After that, every push will publish the latest version.
 
 ## Notes
 
-- The token is stored in `localStorage` if you paste it into the UI.
-- Matching works best when your export includes an IMDb ID, but plain title + year searches are supported too.
-- TMDb metadata, posters, and recommendation links are used for the discovery side of the app.
+- The current app data is browser-local and stays in `localStorage` on that browser.
+- Catalog search is powered by Apple's iTunes Search API, which is a good fit for a static front-end app.
+- If you want a true shared wishlist that syncs across devices automatically, the next step would be adding a backend or database service.

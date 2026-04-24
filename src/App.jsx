@@ -1,651 +1,522 @@
-import { startTransition, useDeferredValue, useEffect, useState } from 'react'
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react'
 import './App.css'
+import { findAlbumCatalogMatch, searchAlbumCatalog } from './lib/albumCatalog.js'
 import {
-  buildBackdropUrl,
-  buildPosterUrl,
-  enrichDiaryEntries,
-  fetchMovieRecommendations,
-  parseLetterboxdCsv,
-} from './lib/movieData.js'
+  buildVinylFingerprint,
+  buildAmazonSearchUrl,
+  loadWishlist,
+  normalizeVinyl,
+  saveWishlist,
+  wishlistMatchesQuery,
+} from './lib/vinylWishlist.js'
 
-const DEFAULT_MOVIE_COUNT = 50
-const TMDB_TOKEN_STORAGE_KEY = 'after-credits.tmdb-read-access-token'
-const PAGE_STORAGE_KEY = 'after-credits.active-page'
+const STATUS_HINT =
+  'Search for an album, click the one you want, and it drops straight onto your wall.'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState(() => {
-    return window.localStorage.getItem(PAGE_STORAGE_KEY) ?? 'movies'
-  })
-  const [tmdbToken, setTmdbToken] = useState(() => {
-    return (
-      window.localStorage.getItem(TMDB_TOKEN_STORAGE_KEY) ??
-      import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN ??
-      ''
-    )
-  })
-  const [movieCount, setMovieCount] = useState(DEFAULT_MOVIE_COUNT)
-  const [entries, setEntries] = useState([])
-  const [enrichedMovies, setEnrichedMovies] = useState([])
-  const [importMessage, setImportMessage] = useState(
-    'Import your Letterboxd export to build the wall.',
+  const [wishlist, setWishlist] = useState(() => loadWishlist())
+  const [selectedVinylId, setSelectedVinylId] = useState('')
+  const [wallFilterQuery, setWallFilterQuery] = useState('')
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogResults, setCatalogResults] = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError] = useState('')
+  const [statusMessage, setStatusMessage] = useState(STATUS_HINT)
+  const catalogAbortRef = useRef(null)
+  const catalogRequestRef = useRef(0)
+  const repairAbortRef = useRef(null)
+  const attemptedRepairsRef = useRef(new Set())
+
+  const deferredWallFilterQuery = useDeferredValue(wallFilterQuery.trim())
+  const filteredWishlist = wishlist.filter((record) =>
+    wishlistMatchesQuery(record, deferredWallFilterQuery),
   )
-  const [importError, setImportError] = useState('')
-  const [loadingState, setLoadingState] = useState({
-    loading: false,
-    complete: 0,
-    total: 0,
-  })
-  const [selectedMovieKey, setSelectedMovieKey] = useState('')
-  const [recommendationsByMovie, setRecommendationsByMovie] = useState({})
-  const [recommendationError, setRecommendationError] = useState('')
-  const [recommendationStatus, setRecommendationStatus] = useState('')
-
-  const deferredMovieCount = useDeferredValue(movieCount)
-  const visibleEntries = entries.slice(0, deferredMovieCount)
-  const selectedMovie =
-    enrichedMovies.find((movie) => movie.entryKey === selectedMovieKey) ?? null
-  const selectedRecommendations = selectedMovie
-    ? recommendationsByMovie[selectedMovie.entryKey] ?? []
-    : []
+  const selectedVinyl =
+    filteredWishlist.find((record) => record.id === selectedVinylId) ??
+    filteredWishlist[0] ??
+    (deferredWallFilterQuery
+      ? null
+      : wishlist.find((record) => record.id === selectedVinylId) ?? wishlist[0] ?? null)
 
   useEffect(() => {
-    window.localStorage.setItem(PAGE_STORAGE_KEY, currentPage)
-  }, [currentPage])
+    saveWishlist(wishlist)
+  }, [wishlist])
 
   useEffect(() => {
-    if (tmdbToken.trim()) {
-      window.localStorage.setItem(TMDB_TOKEN_STORAGE_KEY, tmdbToken.trim())
-      return
+    return () => {
+      catalogAbortRef.current?.abort()
+      repairAbortRef.current?.abort()
     }
-
-    window.localStorage.removeItem(TMDB_TOKEN_STORAGE_KEY)
-  }, [tmdbToken])
+  }, [])
 
   useEffect(() => {
-    if (!tmdbToken.trim() || entries.length === 0) {
-      startTransition(() => {
-        setEnrichedMovies([])
-        setSelectedMovieKey('')
-        setRecommendationsByMovie({})
-      })
-      setLoadingState({ loading: false, complete: 0, total: 0 })
-      return
-    }
-
-    const currentEntries = entries.slice(0, deferredMovieCount)
-    let cancelled = false
-
-    setLoadingState({
-      loading: true,
-      complete: 0,
-      total: currentEntries.length,
-    })
-    setImportError('')
-
-    enrichDiaryEntries(currentEntries, tmdbToken.trim(), ({ complete, total }) => {
-      if (cancelled) {
-        return
+    if (wishlist.length === 0) {
+      if (selectedVinylId) {
+        setSelectedVinylId('')
       }
 
-      setLoadingState({ loading: complete < total, complete, total })
-    })
-      .then((movies) => {
-        if (cancelled) {
-          return
-        }
-
-        startTransition(() => {
-          setEnrichedMovies(movies)
-          setRecommendationsByMovie({})
-          setSelectedMovieKey((currentKey) => {
-            const stillExists = movies.some((movie) => movie.entryKey === currentKey)
-            return stillExists ? currentKey : (movies[0]?.entryKey ?? '')
-          })
-        })
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return
-        }
-
-        setImportError(error.message)
-        startTransition(() => {
-          setEnrichedMovies([])
-          setSelectedMovieKey('')
-          setRecommendationsByMovie({})
-        })
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingState((state) => ({
-            ...state,
-            loading: false,
-          }))
-        }
-      })
-
-    return () => {
-      cancelled = true
+      return
     }
-  }, [entries, deferredMovieCount, tmdbToken])
+
+    const selectionStillExists = wishlist.some((record) => record.id === selectedVinylId)
+    if (!selectionStillExists) {
+      setSelectedVinylId(wishlist[0].id)
+    }
+  }, [wishlist, selectedVinylId])
 
   useEffect(() => {
-    if (!selectedMovie || !selectedMovie.tmdbId || !tmdbToken.trim()) {
-      setRecommendationError('')
-      setRecommendationStatus(
-        selectedMovie && !selectedMovie.tmdbId
-          ? 'No TMDb match for this diary entry yet.'
-          : '',
-      )
+    const trimmedQuery = catalogQuery.trim()
+
+    if (!trimmedQuery) {
+      catalogAbortRef.current?.abort()
+      setCatalogResults([])
+      setCatalogError('')
+      setCatalogLoading(false)
       return
     }
 
-    if (recommendationsByMovie[selectedMovie.entryKey]) {
-      setRecommendationError('')
-      setRecommendationStatus(
-        recommendationsByMovie[selectedMovie.entryKey].length === 0
-          ? 'No fresh recommendations came back for this pick.'
-          : '',
-      )
-      return
-    }
+    const timeoutId = window.setTimeout(async () => {
+      catalogAbortRef.current?.abort()
+      const controller = new AbortController()
+      const requestId = catalogRequestRef.current + 1
+      catalogAbortRef.current = controller
+      catalogRequestRef.current = requestId
 
-    let cancelled = false
-    setRecommendationError('')
-    setRecommendationStatus('Loading similar films...')
+      setCatalogLoading(true)
+      setCatalogError('')
 
-    fetchMovieRecommendations(selectedMovie.tmdbId, tmdbToken.trim(), enrichedMovies)
-      .then((recommendations) => {
-        if (cancelled) {
+      try {
+        const results = await searchAlbumCatalog(trimmedQuery, {
+          signal: controller.signal,
+        })
+
+        if (catalogRequestRef.current !== requestId) {
           return
         }
 
-        setRecommendationsByMovie((current) => ({
-          ...current,
-          [selectedMovie.entryKey]: recommendations,
-        }))
-        setRecommendationStatus(
-          recommendations.length === 0
-            ? 'No fresh recommendations came back for this pick.'
-            : '',
+        setCatalogResults(results)
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          return
+        }
+
+        if (catalogRequestRef.current !== requestId) {
+          return
+        }
+
+        setCatalogResults([])
+        setCatalogError('Search hit a snag. Try that album again in a second.')
+      } finally {
+        if (catalogAbortRef.current === controller) {
+          catalogAbortRef.current = null
+        }
+
+        if (catalogRequestRef.current === requestId) {
+          setCatalogLoading(false)
+        }
+      }
+    }, 280)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [catalogQuery])
+
+  useEffect(() => {
+    const candidate = wishlist.find(
+      (record) =>
+        !record.coverUrl &&
+        !attemptedRepairsRef.current.has(record.id) &&
+        (record.album || record.artist),
+    )
+
+    if (!candidate) {
+      return
+    }
+
+    attemptedRepairsRef.current.add(candidate.id)
+    repairAbortRef.current?.abort()
+    const controller = new AbortController()
+    repairAbortRef.current = controller
+
+    findAlbumCatalogMatch(candidate, { signal: controller.signal })
+      .then((match) => {
+        if (!match?.coverUrl) {
+          return
+        }
+
+        setWishlist((current) =>
+          current.map((record) => {
+            if (record.id !== candidate.id) {
+              return record
+            }
+
+            return {
+              ...record,
+              coverUrl: record.coverUrl || match.coverUrl,
+              year: record.year || match.year,
+              genre: record.genre || match.genre,
+            }
+          }),
         )
       })
       .catch((error) => {
-        if (cancelled) {
-          return
+        if (error.name !== 'AbortError') {
+          // Ignore silent repair misses and leave the card as-is.
         }
-
-        setRecommendationError(error.message)
-        setRecommendationStatus('')
       })
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
-  }, [enrichedMovies, recommendationsByMovie, selectedMovie, tmdbToken])
+  }, [wishlist])
 
-  async function handleFileImport(event) {
-    const file = event.target.files?.[0]
-    if (!file) {
+  function handleDeleteVinyl(vinylId) {
+    const vinyl = wishlist.find((record) => record.id === vinylId)
+    if (!vinyl) {
       return
     }
 
-    try {
-      const text = await file.text()
-      const parsedEntries = parseLetterboxdCsv(text)
+    startTransition(() => {
+      setWishlist((current) => current.filter((record) => record.id !== vinylId))
+    })
 
-      if (parsedEntries.length === 0) {
-        throw new Error('The file loaded, but no watch entries were found.')
-      }
-
-      startTransition(() => {
-        setEntries(parsedEntries)
-        setEnrichedMovies([])
-        setSelectedMovieKey('')
-        setRecommendationsByMovie({})
-      })
-      setImportError('')
-      setRecommendationError('')
-      setRecommendationStatus('')
-      setImportMessage(
-        `Loaded ${parsedEntries.length} watch entries from ${file.name}.`,
-      )
-      setCurrentPage('movies')
-    } catch (error) {
-      setImportError(error.message)
-      setImportMessage('Import another Letterboxd CSV to try again.')
-    } finally {
-      event.target.value = ''
-    }
+    setStatusMessage(`Removed ${vinyl.album} from the wishlist.`)
   }
 
-  const hasImportedEntries = entries.length > 0
-  const hasTmdbToken = Boolean(tmdbToken.trim())
-  const selectedBackdrop = buildBackdropUrl(selectedMovie?.backdropPath)
+  function handleAddCatalogResult(result) {
+    const nextVinyl = normalizeVinyl(result)
+    if (!nextVinyl) {
+      return
+    }
+
+    const existingVinyl = wishlist.find(
+      (record) => buildVinylFingerprint(record) === buildVinylFingerprint(nextVinyl),
+    )
+
+    if (existingVinyl) {
+      setSelectedVinylId(existingVinyl.id)
+      setCatalogQuery('')
+      setCatalogResults([])
+      setCatalogError('')
+      setStatusMessage(`${existingVinyl.album} is already on your wall.`)
+      return
+    }
+
+    startTransition(() => {
+      setWishlist((current) => [nextVinyl, ...current])
+      setSelectedVinylId(nextVinyl.id)
+    })
+
+    setCatalogQuery('')
+    setCatalogResults([])
+    setCatalogError('')
+    setStatusMessage(`Added ${nextVinyl.album} to the wall.`)
+  }
+
+  function handleRecordClick(record) {
+    if (record.amazonUrl) {
+      window.open(record.amazonUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setSelectedVinylId(record.id)
+  }
+
+  const wishlistCount = wishlist.length
+  const coverCount = wishlist.filter((record) => Boolean(record.coverUrl)).length
+  const amazonReadyCount = wishlist.filter((record) => Boolean(record.amazonUrl)).length
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Local movie companion</p>
-          <h1 className="topbar-title">After Credits</h1>
-        </div>
-        <nav className="page-nav" aria-label="Primary">
-          <button
-            className={`nav-button${currentPage === 'movies' ? ' is-active' : ''}`}
-            type="button"
-            onClick={() => setCurrentPage('movies')}
-          >
-            Movies
-          </button>
-          <button
-            className={`nav-button${currentPage === 'settings' ? ' is-active' : ''}`}
-            type="button"
-            onClick={() => setCurrentPage('settings')}
-          >
-            Settings
-          </button>
-        </nav>
-      </header>
+    <main className="page-shell">
+      <div className="blog-frame">
+        <header className="browser-bar">
+          <div className="browser-lights" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p>vinyl-wishlist.exe</p>
+        </header>
 
-      {currentPage === 'movies' ? (
-        <>
-          <section className="hero-panel">
-            <div className="hero-copy">
-              <div className="hero-orbit hero-orbit-a" aria-hidden="true"></div>
-              <div className="hero-orbit hero-orbit-b" aria-hidden="true"></div>
-              <div className="hero-beam" aria-hidden="true"></div>
-              <div className="hero-kicker">
-                <p className="eyebrow">Recent watches</p>
-                <span className="signal-pill">Now screening</span>
-              </div>
-              <h1>
-                Pick a film.
-                <br />
-                Find your next watch.
-              </h1>
-              <p className="hero-text">
-                Your latest Letterboxd movies, remixed into a neon wall with
-                recommendations waiting behind each poster.
+        <section className="priority-layout">
+          <section className="widget-card search-priority-card">
+            <div className="search-priority-copy">
+              <p className="eyebrow">Search and add</p>
+              <h1>Wax Wishlist</h1>
+              <p className="hero-copy">
+                Search first, pick the right album, and drop it onto the wall in one
+                click.
               </p>
-              <div className="hero-ribbon" aria-label="Feature highlights">
-                <span>Recent films</span>
-                <span>Quick picks</span>
-                <span>New recommendations</span>
-              </div>
-              <div className="hero-metrics" aria-label="Import summary">
-                <article>
-                  <span>{entries.length}</span>
-                  <p>Imported diary entries</p>
-                </article>
-                <article>
-                  <span>{visibleEntries.length}</span>
-                  <p>Shown on the wall</p>
-                </article>
-                <article>
-                  <span>{selectedRecommendations.length}</span>
-                  <p>Live recommendations</p>
-                </article>
-              </div>
             </div>
 
-            <div className="summary-panel">
-              <div className="panel-card">
-                <p className="eyebrow">Library status</p>
-                <div className="summary-list">
-                  <article>
-                    <span>{hasTmdbToken ? 'Ready' : 'Missing'}</span>
-                    <p>TMDb token</p>
-                  </article>
-                  <article>
-                    <span>{hasImportedEntries ? 'Loaded' : 'Waiting'}</span>
-                    <p>Letterboxd export</p>
-                  </article>
-                  <article>
-                    <span>{loadingState.total > 0 ? `${loadingState.complete}/${loadingState.total}` : '--'}</span>
-                    <p>Matched entries</p>
-                  </article>
-                </div>
-              </div>
+            <div className="search-stack search-stack--priority">
+              <label className="sr-only" htmlFor="catalog-search-input">
+                Search the album catalog
+              </label>
+              <input
+                id="catalog-search-input"
+                name="catalogQuery"
+                type="text"
+                value={catalogQuery}
+                onChange={(event) => setCatalogQuery(event.target.value)}
+                placeholder="Search artist or album..."
+                autoComplete="off"
+              />
 
-              <div className="status-strip">
-                <p>{importMessage}</p>
-                {!hasTmdbToken && (
-                  <p>Add your TMDb token in Settings to unlock posters and recommendations.</p>
-                )}
-                {!hasImportedEntries && (
-                  <p>Import your Letterboxd export in Settings to populate the movie wall.</p>
-                )}
-                {loadingState.total > 0 && (
-                  <p>
-                    Matching {loadingState.complete} of {loadingState.total}
-                    {loadingState.loading ? '...' : '.'}
-                  </p>
-                )}
-                {importError && <p className="error-text">{importError}</p>}
-              </div>
+              {catalogQuery.trim() ? (
+                <div className="search-dropdown" role="listbox" aria-label="Album results">
+                  {catalogLoading ? (
+                    <p className="dropdown-status">Searching the stacks...</p>
+                  ) : null}
+
+                  {!catalogLoading && catalogError ? (
+                    <p className="dropdown-status is-error">{catalogError}</p>
+                  ) : null}
+
+                  {!catalogLoading && !catalogError && catalogResults.length > 0
+                    ? catalogResults.map((result) => (
+                        <button
+                          key={result.id}
+                          className="dropdown-option"
+                          type="button"
+                          onClick={() => handleAddCatalogResult(result)}
+                        >
+                          {result.coverUrl ? (
+                            <img
+                              className="dropdown-cover"
+                              src={result.coverUrl}
+                              alt=""
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div
+                              className="dropdown-cover fallback-cover"
+                              aria-hidden="true"
+                            >
+                              <span>{result.album.slice(0, 1)}</span>
+                            </div>
+                          )}
+
+                          <span className="dropdown-copy">
+                            <strong>{result.album}</strong>
+                            <span>{result.artist || 'Unknown artist'}</span>
+                            <span>
+                              {result.year || 'Year unknown'}
+                              {result.genre ? ` • ${result.genre}` : ''}
+                            </span>
+                          </span>
+                        </button>
+                      ))
+                    : null}
+
+                  {!catalogLoading &&
+                  !catalogError &&
+                  catalogQuery.trim() &&
+                  catalogResults.length === 0 ? (
+                    <p className="dropdown-status">No matches yet for that search.</p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="catalog-prompt">
+                  Start typing and the drop list opens here.
+                </p>
+              )}
             </div>
           </section>
 
-          <section className="content-grid">
-            <div className="movie-wall">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Watch history</p>
-                  <h2>Interactive wall</h2>
-                </div>
-                <p>
-                  Select any title to see similar films filtered against what you
-                  already watched.
-                </p>
+          <aside className="hero-card hero-card--compact">
+            <p className="eyebrow">Wall status</p>
+            <div className="marquee marquee--compact" aria-label="Moving status banner">
+              <div className="marquee-track">
+                <span>MORE RECORDS</span>
+                <span>FASTER SEARCH</span>
+                <span>RETRO BLOG MODE</span>
+                <span>MORE RECORDS</span>
+                <span>FASTER SEARCH</span>
+                <span>RETRO BLOG MODE</span>
               </div>
-              <div className="wall-banner" aria-hidden="true">
-                <span className="wall-banner-line"></span>
-                <p>NOW PLAYING YOUR LAST {visibleEntries.length || movieCount} WATCHES</p>
-                <span className="wall-banner-line"></span>
+            </div>
+
+            <div className="hero-stats hero-stats--compact">
+              <article>
+                <span>{wishlistCount}</span>
+                <p>Records on deck</p>
+              </article>
+              <article>
+                <span>{coverCount}</span>
+                <p>With cover art</p>
+              </article>
+              <article>
+                <span>{amazonReadyCount}</span>
+                <p>Direct Amazon links</p>
+              </article>
+            </div>
+
+            <div className="status-note">
+              <strong>Status:</strong> {statusMessage}
+            </div>
+          </aside>
+        </section>
+
+        <section className="toolbar-card toolbar-card--single">
+          <label className="filter-field">
+            <span>Filter your wall</span>
+            <input
+              type="search"
+              value={wallFilterQuery}
+              onChange={(event) => setWallFilterQuery(event.target.value)}
+              placeholder="Search album, artist, genre, or notes"
+            />
+          </label>
+        </section>
+
+        <section className="content-layout content-layout--compact">
+          <section className="record-list-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">The stack</p>
+                <h2>Wishlist wall</h2>
               </div>
+              <p>
+                If a record has a direct Amazon URL, clicking its card opens Amazon
+                right away. Otherwise it stays in the spotlight view.
+              </p>
+            </div>
 
-              {hasImportedEntries ? (
-                <div className="movie-grid" role="list">
-                  {enrichedMovies.map((movie, index) => {
-                    const poster = buildPosterUrl(movie.posterPath)
-                    const isSelected = selectedMovieKey === movie.entryKey
-                    const isFeatured = index < 3
+            {filteredWishlist.length > 0 ? (
+              <div className="record-grid" role="list">
+                {filteredWishlist.map((record, index) => {
+                  const isSelected = selectedVinyl?.id === record.id
 
-                    return (
+                  return (
+                    <article
+                      key={record.id}
+                      className={`record-card${isSelected ? ' is-selected' : ''}`}
+                    >
                       <button
-                        key={movie.entryKey}
-                        className={`movie-card${isSelected ? ' is-selected' : ''}${
-                          isFeatured ? ' is-featured' : ''
-                        }`}
+                        className="record-select"
                         type="button"
-                        onClick={() => setSelectedMovieKey(movie.entryKey)}
+                        onClick={() => handleRecordClick(record)}
                       >
-                        {isFeatured && <span className="featured-tag">Featured</span>}
-                        <span className="movie-index">
-                          {String(index + 1).padStart(2, '0')}
+                        <span className="record-badge">
+                          #{String(index + 1).padStart(2, '0')}
                         </span>
-                        {poster ? (
+                        {record.coverUrl ? (
                           <img
-                            className="movie-poster"
-                            src={poster}
-                            alt={`${movie.title} poster`}
+                            className="record-cover"
+                            src={record.coverUrl}
+                            alt={`${record.album} cover`}
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <div className="poster-fallback" aria-hidden="true">
-                            <span>{movie.title.slice(0, 1)}</span>
+                          <div className="record-cover fallback-cover" aria-hidden="true">
+                            <span>{record.album.slice(0, 1)}</span>
                           </div>
                         )}
-                        <div className="movie-meta">
-                          <h3>{movie.title}</h3>
+                        <div className="record-meta">
+                          <h3>{record.album}</h3>
+                          <p>{record.artist || 'Unknown artist'}</p>
                           <p>
-                            {movie.releaseYear ?? movie.year ?? 'Year unknown'}
-                            {' · '}
-                            {movie.watchedDateLabel ?? 'Watch date unknown'}
+                            {record.year || 'Year unknown'}
+                            {record.genre ? ` • ${record.genre}` : ''}
                           </p>
                         </div>
                       </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <p>Import a Letterboxd CSV in Settings to populate the wall.</p>
-                  <p>This local app does not need a Letterboxd API key for the core flow.</p>
-                  <button
-                    className="action-button"
-                    type="button"
-                    onClick={() => setCurrentPage('settings')}
-                  >
-                    Open settings
-                  </button>
-                </div>
-              )}
-            </div>
 
-            <aside className="detail-panel">
-              {selectedMovie ? (
-                <article className="detail-card">
-                  <div
-                    className="detail-hero"
-                    style={
-                      selectedBackdrop
-                        ? { backgroundImage: `linear-gradient(180deg, rgba(8, 13, 21, 0.15), rgba(8, 13, 21, 0.88)), url(${selectedBackdrop})` }
-                        : undefined
-                    }
-                  >
-                    <p className="eyebrow">Selected film</p>
-                    <h2>
-                      {selectedMovie.title}
-                      {selectedMovie.releaseYear ? ` (${selectedMovie.releaseYear})` : ''}
-                    </h2>
-                    <p>
-                      {selectedMovie.overview ||
-                        'No overview came back from TMDb for this title.'}
-                    </p>
-                  </div>
-
-                  <div className="detail-copy">
-                    <div className="detail-stats">
-                      <article>
-                        <span>{selectedMovie.voteAverage?.toFixed(1) ?? '--'}</span>
-                        <p>TMDb score</p>
-                      </article>
-                      <article>
-                        <span>{selectedMovie.watchedDateLabel ?? '--'}</span>
-                        <p>Watched on</p>
-                      </article>
-                      <article>
-                        <span>{selectedMovie.matchSource}</span>
-                        <p>Match source</p>
-                      </article>
-                    </div>
-
-                    <div className="recommendation-block">
-                      <div className="section-heading compact">
-                        <div>
-                          <p className="eyebrow">Next watch</p>
-                          <h2>Because you watched this</h2>
-                        </div>
-                        <p>
-                          TMDb recommendations and similar titles, minus your imported watches.
-                        </p>
+                      <div className="record-actions">
+                        {record.amazonUrl ? (
+                          <button type="button" onClick={() => setSelectedVinylId(record.id)}>
+                            Spotlight
+                          </button>
+                        ) : (
+                          <a
+                            href={buildAmazonSearchUrl(record)}
+                            target="_blank"
+                            rel="noreferrer"
+                            referrerPolicy="no-referrer"
+                          >
+                            Search Amazon
+                          </a>
+                        )}
+                        <button type="button" onClick={() => handleDeleteVinyl(record.id)}>
+                          Remove
+                        </button>
                       </div>
-
-                      {recommendationStatus && (
-                        <p className="status-note">{recommendationStatus}</p>
-                      )}
-                      {recommendationError && (
-                        <p className="error-text">{recommendationError}</p>
-                      )}
-
-                      {selectedRecommendations.length > 0 ? (
-                        <div className="recommendation-list">
-                          {selectedRecommendations.map((movie) => {
-                            const poster = buildPosterUrl(movie.posterPath)
-
-                            return (
-                              <a
-                                key={movie.id}
-                                className="recommendation-card"
-                                href={`https://www.themoviedb.org/movie/${movie.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {poster ? (
-                                  <img
-                                    className="recommendation-poster"
-                                    src={poster}
-                                    alt={`${movie.title} poster`}
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="recommendation-fallback" aria-hidden="true">
-                                    <span>{movie.title.slice(0, 1)}</span>
-                                  </div>
-                                )}
-                                <div>
-                                  <h3>{movie.title}</h3>
-                                  <p>
-                                    {movie.releaseYear ?? 'Year unknown'}
-                                    {' · '}
-                                    {movie.voteAverage?.toFixed(1) ?? '--'} TMDb
-                                  </p>
-                                  <p>{movie.overview || 'No synopsis available.'}</p>
-                                </div>
-                              </a>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        !recommendationStatus &&
-                        !recommendationError && (
-                          <p className="status-note">
-                            Pick a matched movie and recommendations will appear here.
-                          </p>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </article>
-              ) : (
-                <div className="detail-placeholder">
-                  <p>Select a movie from the wall once the import finishes.</p>
-                  <p>
-                    If a title does not match automatically, the wall still keeps it visible
-                    as a diary card.
-                  </p>
-                </div>
-              )}
-            </aside>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h3>No records match that filter yet.</h3>
+                <p>
+                  Try a different keyword, or use the album search above to add
+                  something new to the wall.
+                </p>
+              </div>
+            )}
           </section>
-        </>
-      ) : (
-        <section className="settings-shell">
-          <div className="settings-hero">
-            <p className="eyebrow">Project setup</p>
-            <h1>Settings</h1>
-            <p className="hero-text">
-              Keep credentials and imports here, so the main page stays focused on
-              the movies themselves.
-            </p>
-          </div>
 
-          <div className="settings-grid">
-            <div className="control-panel">
-              <div className="panel-card">
-                <label className="field-label" htmlFor="tmdb-token">
-                  TMDb read access token
-                </label>
-                <input
-                  id="tmdb-token"
-                  className="text-input"
-                  type="password"
-                  placeholder="Paste your TMDb v4 read access token"
-                  value={tmdbToken}
-                  onChange={(event) => setTmdbToken(event.target.value)}
-                  spellCheck="false"
-                />
-                <p className="helper-text">
-                  Stored only in your browser on this machine. You can also set
-                  `VITE_TMDB_READ_ACCESS_TOKEN` in a local `.env`.
-                </p>
-              </div>
-
-              <div className="panel-card">
-                <label className="field-label" htmlFor="letterboxd-file">
-                  Letterboxd export
-                </label>
-                <input
-                  id="letterboxd-file"
-                  className="file-input"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileImport}
-                />
-                <p className="helper-text">
-                  Import `diary.csv`, `watched.csv`, or another exported Letterboxd CSV
-                  that includes film names and watched dates.
-                </p>
-              </div>
-
-              <div className="panel-card">
-                <div className="slider-row">
-                  <label className="field-label" htmlFor="movie-count">
-                    Wall size
-                  </label>
-                  <span>{movieCount} movies</span>
-                </div>
-                <input
-                  id="movie-count"
-                  className="range-input"
-                  type="range"
-                  min="12"
-                  max="80"
-                  step="1"
-                  value={movieCount}
-                  onChange={(event) => setMovieCount(Number(event.target.value))}
-                />
-                <p className="helper-text">
-                  The app loads the most recent watched entries first, then enriches them
-                  with TMDb posters, backdrops, and recommendation data.
-                </p>
+          <aside className="spotlight-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Featured record</p>
+                <h2>Side A Spotlight</h2>
               </div>
             </div>
 
-            <div className="settings-side">
-              <div className="panel-card">
-                <p className="eyebrow">Current status</p>
-                <div className="summary-list">
-                  <article>
-                    <span>{hasTmdbToken ? 'Ready' : 'Missing'}</span>
-                    <p>TMDb token</p>
-                  </article>
-                  <article>
-                    <span>{entries.length}</span>
-                    <p>Imported entries</p>
-                  </article>
-                  <article>
-                    <span>{movieCount}</span>
-                    <p>Wall size</p>
-                  </article>
-                </div>
-              </div>
-
-              <div className="status-strip">
-                <p>{importMessage}</p>
-                {loadingState.total > 0 && (
-                  <p>
-                    Matched {loadingState.complete} of {loadingState.total} entries
-                    {loadingState.loading ? '...' : '.'}
-                  </p>
+            {selectedVinyl ? (
+              <article className="spotlight-body">
+                {selectedVinyl.coverUrl ? (
+                  <img
+                    className="spotlight-cover"
+                    src={selectedVinyl.coverUrl}
+                    alt={`${selectedVinyl.album} cover`}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="spotlight-cover fallback-cover" aria-hidden="true">
+                    <span>{selectedVinyl.album.slice(0, 1)}</span>
+                  </div>
                 )}
-                {importError && <p className="error-text">{importError}</p>}
+
+                <div className="spotlight-copy">
+                  <p className="spotlight-kicker">{selectedVinyl.artist || 'Unknown artist'}</p>
+                  <h3>{selectedVinyl.album}</h3>
+                  <div className="spotlight-tags">
+                    <span>{selectedVinyl.year || 'Year unknown'}</span>
+                    <span>{selectedVinyl.genre || 'Genre TBD'}</span>
+                  </div>
+                  <p>
+                    {selectedVinyl.notes ||
+                      'No notes yet. This card is now mainly here to spotlight the cover and the basic album info.'}
+                  </p>
+                </div>
+
+                <div className="spotlight-actions">
+                  <a
+                    className="primary-button"
+                    href={selectedVinyl.amazonUrl || buildAmazonSearchUrl(selectedVinyl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    referrerPolicy="no-referrer"
+                  >
+                    {selectedVinyl.amazonUrl ? 'Open Amazon listing' : 'Search Amazon'}
+                  </a>
+                </div>
+              </article>
+            ) : (
+              <div className="empty-state spotlight-empty">
+                <h3>Your wall is ready for its first record.</h3>
+                <p>Search for an album above and click a match to add it instantly.</p>
               </div>
-
-              <button
-                className="action-button"
-                type="button"
-                onClick={() => setCurrentPage('movies')}
-              >
-                Back to movies
-              </button>
-            </div>
-          </div>
+            )}
+          </aside>
         </section>
-      )}
-
-      <footer className="footer-note">
-        <p>
-          Letterboxd history is imported from your local export. Metadata,
-          posters, and recommendations are powered by{' '}
-          <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
-            TMDb
-          </a>
-          .
-        </p>
-      </footer>
+      </div>
     </main>
   )
 }

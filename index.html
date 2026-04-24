@@ -4,8 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#08111a" />
-    <title>After Credits</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com data:;
+        img-src 'self' data: https:;
+        connect-src 'self' https://itunes.apple.com;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        upgrade-insecure-requests;
+      "
+    />
+    <meta name="theme-color" content="#ff8c72" />
+    <meta
+      name="description"
+      content="Wax Wishlist is a searchable vinyl wishlist with cover art, quick Amazon lookup links, and a retro music-blog vibe."
+    />
+    <title>Wax Wishlist</title>
   </head>
   <body>
     <div id="root"></div>
