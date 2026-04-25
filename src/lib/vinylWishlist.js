@@ -44,12 +44,6 @@ export function normalizeVinyl(record) {
     return null
   }
 
-  const year = readValue(record, 'year').replace(/[^\d]/g, '').slice(0, 4)
-  const genre = readValue(record, 'genre')
-  const coverUrl = sanitizeCoverUrl(readValue(record, 'coverUrl'))
-  const amazonUrl = sanitizeAmazonUrl(readValue(record, 'amazonUrl'))
-  const notes = readValue(record, 'notes')
-
   return {
     id:
       typeof record.id === 'string' && record.id.trim()
@@ -57,11 +51,11 @@ export function normalizeVinyl(record) {
         : createRecordId(album || artist, artist),
     album: album || 'Untitled record',
     artist: artist || 'Unknown artist',
-    year,
-    genre,
-    coverUrl,
-    amazonUrl,
-    notes,
+    year: readValue(record, 'year').replace(/[^\d]/g, '').slice(0, 4),
+    genre: readValue(record, 'genre'),
+    coverUrl: sanitizeCoverUrl(readValue(record, 'coverUrl')),
+    amazonUrl: sanitizeAmazonUrl(readValue(record, 'amazonUrl')),
+    notes: readValue(record, 'notes'),
   }
 }
 
@@ -83,7 +77,7 @@ export function wishlistMatchesQuery(record, query) {
     return true
   }
 
-  const haystack = [
+  return [
     record.album,
     record.artist,
     record.year,
@@ -93,8 +87,7 @@ export function wishlistMatchesQuery(record, query) {
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
-
-  return haystack.includes(query.toLowerCase())
+    .includes(query.toLowerCase())
 }
 
 export function buildAmazonSearchUrl(record) {
@@ -103,8 +96,7 @@ export function buildAmazonSearchUrl(record) {
 }
 
 function readValue(record, field) {
-  const aliases = FIELD_ALIASES[field]
-  for (const alias of aliases) {
+  for (const alias of FIELD_ALIASES[field]) {
     if (alias in record && record[alias] != null) {
       return String(record[alias]).trim()
     }
@@ -133,10 +125,8 @@ function sanitizeAmazonUrl(value) {
 
   try {
     const url = new URL(value)
-    const isHttps = url.protocol === 'https:'
     const isAmazonHost = /(^|\.)amazon\.[a-z.]+$/i.test(url.hostname)
-
-    return isHttps && isAmazonHost ? url.toString() : ''
+    return url.protocol === 'https:' && isAmazonHost ? url.toString() : ''
   } catch {
     return ''
   }
@@ -147,7 +137,6 @@ function dedupeWishlist(records) {
 
   return records.filter((record) => {
     const key = buildVinylFingerprint(record)
-
     if (seen.has(key)) {
       return false
     }

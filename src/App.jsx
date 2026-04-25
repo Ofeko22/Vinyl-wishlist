@@ -1,131 +1,62 @@
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { searchAlbumCatalog } from './lib/albumCatalog.js'
 import {
-  startTransition,
-  useDeferredValue,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
-import './App.css'
-import { findAlbumCatalogMatch, searchAlbumCatalog } from './lib/albumCatalog.js'
-import {
-  buildVinylFingerprint,
   buildAmazonSearchUrl,
+  buildVinylFingerprint,
   loadWishlist,
   normalizeVinyl,
   saveWishlist,
   wishlistMatchesQuery,
 } from './lib/vinylWishlist.js'
 
-const STATUS_HINT =
-  'Search for an album, click the one you want, and it drops straight onto your wall.'
+const EMPTY_STATUS =
+  'Search for an album, choose the best match, and it joins your wall.'
 
 function App() {
   const [wishlist, setWishlist] = useState(() => loadWishlist())
-  const [selectedVinylId, setSelectedVinylId] = useState('')
-  const [wallFilterQuery, setWallFilterQuery] = useState('')
-  const [draggedVinylId, setDraggedVinylId] = useState('')
-  const [dragTargetVinylId, setDragTargetVinylId] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const [filterQuery, setFilterQuery] = useState('')
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogResults, setCatalogResults] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState('')
-  const [statusMessage, setStatusMessage] = useState(STATUS_HINT)
-  const catalogAbortRef = useRef(null)
-  const catalogRequestRef = useRef(0)
-  const repairAbortRef = useRef(null)
-  const attemptedRepairsRef = useRef(new Set())
-  const recordNodesRef = useRef(new Map())
-  const previousRecordRectsRef = useRef(new Map())
-  const newVinylTimeoutRef = useRef(0)
-  const [newlyAddedVinylId, setNewlyAddedVinylId] = useState('')
+  const [statusMessage, setStatusMessage] = useState(EMPTY_STATUS)
+  const [draggedId, setDraggedId] = useState('')
+  const abortRef = useRef(null)
+  const requestRef = useRef(0)
 
-  const deferredWallFilterQuery = useDeferredValue(wallFilterQuery.trim())
-  const filteredWishlist = wishlist.filter((record) =>
-    wishlistMatchesQuery(record, deferredWallFilterQuery),
+  const deferredFilter = useDeferredValue(filterQuery.trim())
+  const filteredWishlist = useMemo(
+    () => wishlist.filter((record) => wishlistMatchesQuery(record, deferredFilter)),
+    [deferredFilter, wishlist],
   )
-  const selectedVinyl =
-    filteredWishlist.find((record) => record.id === selectedVinylId) ??
+  const selectedRecord =
+    filteredWishlist.find((record) => record.id === selectedId) ??
+    wishlist.find((record) => record.id === selectedId) ??
     filteredWishlist[0] ??
-    (deferredWallFilterQuery
-      ? null
-      : wishlist.find((record) => record.id === selectedVinylId) ?? wishlist[0] ?? null)
+    wishlist[0] ??
+    null
 
   useEffect(() => {
     saveWishlist(wishlist)
   }, [wishlist])
 
   useEffect(() => {
-    return () => {
-      catalogAbortRef.current?.abort()
-      repairAbortRef.current?.abort()
-      window.clearTimeout(newVinylTimeoutRef.current)
-    }
-  }, [])
-
-  useLayoutEffect(() => {
-    const nextRecordRects = new Map()
-
-    filteredWishlist.forEach((record) => {
-      const node = recordNodesRef.current.get(record.id)
-      if (!node) {
-        return
-      }
-
-      const currentRect = node.getBoundingClientRect()
-      const previousRect = previousRecordRectsRef.current.get(record.id)
-      nextRecordRects.set(record.id, currentRect)
-
-      if (!previousRect) {
-        return
-      }
-
-      const deltaX = previousRect.left - currentRect.left
-      const deltaY = previousRect.top - currentRect.top
-
-      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
-        return
-      }
-
-      node.animate(
-        [
-          {
-            translate: `${deltaX}px ${deltaY}px`,
-          },
-          {
-            translate: '0 0',
-          },
-        ],
-        {
-          duration: 380,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        },
-      )
-    })
-
-    previousRecordRectsRef.current = nextRecordRects
-  }, [filteredWishlist])
-
-  useEffect(() => {
-    if (wishlist.length === 0) {
-      if (selectedVinylId) {
-        setSelectedVinylId('')
-      }
-
+    if (!wishlist.length) {
+      setSelectedId('')
       return
     }
 
-    const selectionStillExists = wishlist.some((record) => record.id === selectedVinylId)
-    if (!selectionStillExists) {
-      setSelectedVinylId(wishlist[0].id)
+    if (!wishlist.some((record) => record.id === selectedId)) {
+      setSelectedId(wishlist[0].id)
     }
-  }, [wishlist, selectedVinylId])
+  }, [selectedId, wishlist])
 
   useEffect(() => {
-    const trimmedQuery = catalogQuery.trim()
+    const query = catalogQuery.trim()
 
-    if (!trimmedQuery) {
-      catalogAbortRef.current?.abort()
+    if (!query) {
+      abortRef.current?.abort()
       setCatalogResults([])
       setCatalogError('')
       setCatalogLoading(false)
@@ -133,46 +64,36 @@ function App() {
     }
 
     const timeoutId = window.setTimeout(async () => {
-      catalogAbortRef.current?.abort()
+      abortRef.current?.abort()
       const controller = new AbortController()
-      const requestId = catalogRequestRef.current + 1
-      catalogAbortRef.current = controller
-      catalogRequestRef.current = requestId
+      const requestId = requestRef.current + 1
+      abortRef.current = controller
+      requestRef.current = requestId
 
       setCatalogLoading(true)
       setCatalogError('')
 
       try {
-        const results = await searchAlbumCatalog(trimmedQuery, {
-          signal: controller.signal,
-        })
+        const results = await searchAlbumCatalog(query, { signal: controller.signal })
 
-        if (catalogRequestRef.current !== requestId) {
-          return
+        if (requestRef.current === requestId) {
+          setCatalogResults(results)
         }
-
-        setCatalogResults(results)
       } catch (error) {
-        if (error.name === 'AbortError') {
-          return
+        if (error.name !== 'AbortError' && requestRef.current === requestId) {
+          setCatalogResults([])
+          setCatalogError('Search is unavailable for a moment. Try again shortly.')
         }
-
-        if (catalogRequestRef.current !== requestId) {
-          return
-        }
-
-        setCatalogResults([])
-        setCatalogError('Search hit a snag. Try that album again in a second.')
       } finally {
-        if (catalogAbortRef.current === controller) {
-          catalogAbortRef.current = null
+        if (abortRef.current === controller) {
+          abortRef.current = null
         }
 
-        if (catalogRequestRef.current === requestId) {
+        if (requestRef.current === requestId) {
           setCatalogLoading(false)
         }
       }
-    }, 280)
+    }, 260)
 
     return () => {
       window.clearTimeout(timeoutId)
@@ -180,494 +101,358 @@ function App() {
   }, [catalogQuery])
 
   useEffect(() => {
-    const candidate = wishlist.find(
-      (record) =>
-        !record.coverUrl &&
-        !attemptedRepairsRef.current.has(record.id) &&
-        (record.album || record.artist),
-    )
-
-    if (!candidate) {
-      return
-    }
-
-    attemptedRepairsRef.current.add(candidate.id)
-    repairAbortRef.current?.abort()
-    const controller = new AbortController()
-    repairAbortRef.current = controller
-
-    findAlbumCatalogMatch(candidate, { signal: controller.signal })
-      .then((match) => {
-        if (!match?.coverUrl) {
-          return
-        }
-
-        setWishlist((current) =>
-          current.map((record) => {
-            if (record.id !== candidate.id) {
-              return record
-            }
-
-            return {
-              ...record,
-              coverUrl: record.coverUrl || match.coverUrl,
-              year: record.year || match.year,
-              genre: record.genre || match.genre,
-            }
-          }),
-        )
-      })
-      .catch((error) => {
-        if (error.name !== 'AbortError') {
-          // Ignore silent repair misses and leave the card as-is.
-        }
-      })
-
     return () => {
-      controller.abort()
+      abortRef.current?.abort()
     }
-  }, [wishlist])
+  }, [])
 
-  function handleDeleteVinyl(vinylId) {
-    const vinyl = wishlist.find((record) => record.id === vinylId)
-    if (!vinyl) {
+  function handleAddResult(result) {
+    const nextRecord = normalizeVinyl(result)
+    if (!nextRecord) {
       return
     }
 
-    startTransition(() => {
-      setWishlist((current) => current.filter((record) => record.id !== vinylId))
-    })
-
-    setStatusMessage(`Removed ${vinyl.album} from the wishlist.`)
-  }
-
-  function handleAddCatalogResult(result) {
-    const nextVinyl = normalizeVinyl(result)
-    if (!nextVinyl) {
-      return
-    }
-
-    const existingVinyl = wishlist.find(
-      (record) => buildVinylFingerprint(record) === buildVinylFingerprint(nextVinyl),
+    const existingRecord = wishlist.find(
+      (record) => buildVinylFingerprint(record) === buildVinylFingerprint(nextRecord),
     )
 
-    if (existingVinyl) {
-      setSelectedVinylId(existingVinyl.id)
+    if (existingRecord) {
+      setSelectedId(existingRecord.id)
       setCatalogQuery('')
       setCatalogResults([])
       setCatalogError('')
-      setStatusMessage(`${existingVinyl.album} is already on your wall.`)
+      setStatusMessage(`${existingRecord.album} is already on the wall.`)
       return
     }
 
-    startTransition(() => {
-      setWishlist((current) => [nextVinyl, ...current])
-      setSelectedVinylId(nextVinyl.id)
-    })
-
-    window.clearTimeout(newVinylTimeoutRef.current)
-    setNewlyAddedVinylId(nextVinyl.id)
-    newVinylTimeoutRef.current = window.setTimeout(() => {
-      setNewlyAddedVinylId((current) => (current === nextVinyl.id ? '' : current))
-    }, 950)
-
+    setWishlist((current) => [nextRecord, ...current])
+    setSelectedId(nextRecord.id)
     setCatalogQuery('')
     setCatalogResults([])
     setCatalogError('')
-    setStatusMessage(`Added ${nextVinyl.album} to the wall.`)
+    setStatusMessage(`Added ${nextRecord.album}.`)
   }
 
-  function setRecordNode(vinylId, node) {
-    if (node) {
-      recordNodesRef.current.set(vinylId, node)
-      return
+  function handleRemove(recordId) {
+    const record = wishlist.find((item) => item.id === recordId)
+    setWishlist((current) => current.filter((item) => item.id !== recordId))
+
+    if (record) {
+      setStatusMessage(`Removed ${record.album}.`)
     }
-
-    recordNodesRef.current.delete(vinylId)
-    previousRecordRectsRef.current.delete(vinylId)
   }
 
-  function handleRecordClick(record) {
-    if (record.amazonUrl) {
-      window.open(record.amazonUrl, '_blank', 'noopener,noreferrer')
-      return
-    }
-
-    setSelectedVinylId(record.id)
-  }
-
-  function handleDragStart(event, vinylId) {
-    const recordNode = recordNodesRef.current.get(vinylId)
+  function handleDragStart(event, recordId) {
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', vinylId)
-
-    if (recordNode) {
-      const { width } = recordNode.getBoundingClientRect()
-      event.dataTransfer.setDragImage(recordNode, Math.min(width / 2, 120), 40)
-    }
-
-    setDraggedVinylId(vinylId)
-    setDragTargetVinylId(vinylId)
+    event.dataTransfer.setData('text/plain', recordId)
+    setDraggedId(recordId)
   }
 
-  function handleDragOver(event, vinylId) {
+  function handleDrop(event, targetId) {
     event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
+    const sourceId = draggedId || event.dataTransfer.getData('text/plain')
 
-    if (dragTargetVinylId !== vinylId) {
-      setDragTargetVinylId(vinylId)
-    }
-  }
-
-  function handleDrop(event, targetVinylId) {
-    event.preventDefault()
-
-    const sourceVinylId = draggedVinylId || event.dataTransfer.getData('text/plain')
-    if (!sourceVinylId || sourceVinylId === targetVinylId) {
-      clearDragState()
+    if (!sourceId || sourceId === targetId) {
+      setDraggedId('')
       return
     }
 
-    const visibleVinylIds = filteredWishlist.map((record) => record.id)
-    if (
-      !visibleVinylIds.includes(sourceVinylId) ||
-      !visibleVinylIds.includes(targetVinylId)
-    ) {
-      clearDragState()
-      return
-    }
-
-    setWishlist((current) =>
-      reorderVisibleSubset(current, visibleVinylIds, sourceVinylId, targetVinylId),
-    )
-    setSelectedVinylId(sourceVinylId)
-    setStatusMessage('Updated your ranking on the wall.')
-    clearDragState()
+    const visibleIds = filteredWishlist.map((record) => record.id)
+    setWishlist((current) => reorderVisibleRecords(current, visibleIds, sourceId, targetId))
+    setSelectedId(sourceId)
+    setDraggedId('')
+    setStatusMessage('Updated the wall order.')
   }
-
-  function handleDragEnd() {
-    clearDragState()
-  }
-
-  function clearDragState() {
-    setDraggedVinylId('')
-    setDragTargetVinylId('')
-  }
-
-  const wishlistCount = wishlist.length
-  const topStripRecords =
-    wishlist.slice(0, 6).length > 0
-      ? wishlist.slice(0, 6)
-      : Array.from({ length: 4 }, (_, index) => ({
-          id: `placeholder-${index}`,
-          album: '',
-          coverUrl: '',
-        }))
 
   return (
-    <main className="page-shell">
-      <div className="blog-frame">
-        <header className="browser-bar">
-          <div className="browser-brand" aria-label="Vinyl Wishlist">
-            <span className="browser-record" aria-hidden="true">
-              <span className="browser-record__label"></span>
-            </span>
-            <p>Vinyl Wishlist</p>
+    <main className="app-shell">
+      <header className="app-header" aria-label="Vinyl Wishlist">
+        <div className="brand-lockup">
+          <MiniRecord />
+          <div>
+            <p className="eyebrow">Vinyl Wishlist</p>
+            <h1>Wishlist wall</h1>
           </div>
-        </header>
+        </div>
+        <p className="header-copy">
+          A clean shelf for albums you want next. Search, add, rank, and keep
+          one record in the spotlight.
+        </p>
+      </header>
 
-        <section
-          className="top-status-bar"
-          aria-label={`${wishlistCount} ${wishlistCount === 1 ? 'record' : 'records'} on the wall`}
-        >
-          <div className="top-vinyl-strip" aria-hidden="true">
-            {topStripRecords.map((record, index) => (
-              <div
-                key={record.id}
-                className={`mini-vinyl mini-vinyl--${(index % 4) + 1}`}
-                style={{ '--mini-delay': `${index * 0.08}s` }}
-              >
-                <div className="mini-vinyl__label">
-                  {record.coverUrl ? (
-                    <img src={record.coverUrl} alt="" referrerPolicy="no-referrer" />
-                  ) : (
-                    <span>{record.album.slice(0, 1) || ''}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="content-layout content-layout--compact">
-          <section className="record-list-card">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">The stack</p>
-                <h2>Wishlist wall</h2>
-              </div>
-              <div className="section-tools">
-                <p>
-                  Drag cards to rank them. If a record has a direct Amazon URL,
-                  clicking its card opens Amazon right away.
-                </p>
-                <label className="filter-field filter-field--compact">
-                  <span>Filter</span>
-                  <input
-                    type="search"
-                    value={wallFilterQuery}
-                    onChange={(event) => setWallFilterQuery(event.target.value)}
-                    placeholder="Search wall"
-                  />
-                </label>
-              </div>
+      <section className="workspace">
+        <section className="wall-panel" aria-label="Wishlist records">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">The stack</p>
+              <h2>{wishlist.length} records</h2>
             </div>
+            <label className="filter-field">
+              <span>Filter wall</span>
+              <input
+                type="search"
+                value={filterQuery}
+                onChange={(event) => setFilterQuery(event.target.value)}
+                placeholder="Artist, album, year..."
+              />
+            </label>
+          </div>
 
-            {filteredWishlist.length > 0 ? (
-              <div className="record-grid" role="list">
-                {filteredWishlist.map((record, index) => {
-                  const isSelected = selectedVinyl?.id === record.id
-                  const isDragging = draggedVinylId === record.id
-                  const isDragTarget =
-                    draggedVinylId && dragTargetVinylId === record.id && !isDragging
-
-                  return (
-                    <article
-                      key={record.id}
-                      className={`record-card${isSelected ? ' is-selected' : ''}${
-                        isDragging ? ' is-dragging' : ''
-                      }${isDragTarget ? ' is-drag-target' : ''}${
-                        newlyAddedVinylId === record.id ? ' is-new' : ''
-                      }`}
-                      ref={(node) => setRecordNode(record.id, node)}
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, record.id)}
-                      onDragOver={(event) => handleDragOver(event, record.id)}
-                      onDrop={(event) => handleDrop(event, record.id)}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <button
-                        className="record-select"
-                        type="button"
-                        onClick={() => handleRecordClick(record)}
-                      >
-                        <span className="record-badge">
-                          #{String(index + 1).padStart(2, '0')}
-                        </span>
-                        <div className="cover-stack record-art">
-                          {record.coverUrl ? (
-                            <img
-                              className="record-cover"
-                              src={record.coverUrl}
-                              alt={`${record.album} cover`}
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="record-cover fallback-cover" aria-hidden="true">
-                              <span>{record.album.slice(0, 1)}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="record-meta">
-                          <h3>{record.album}</h3>
-                          <p>{record.artist || 'Unknown artist'}</p>
-                          <p>
-                            {record.year || 'Year unknown'}
-                            {record.genre ? ` • ${record.genre}` : ''}
-                          </p>
-                        </div>
-                      </button>
-
-                      <div className="record-actions">
-                        {record.amazonUrl ? (
-                          <button type="button" onClick={() => setSelectedVinylId(record.id)}>
-                            Spotlight
-                          </button>
-                        ) : (
-                          <a
-                            href={buildAmazonSearchUrl(record)}
-                            target="_blank"
-                            rel="noreferrer"
-                            referrerPolicy="no-referrer"
-                          >
-                            Search Amazon
-                          </a>
-                        )}
-                        <button type="button" onClick={() => handleDeleteVinyl(record.id)}>
-                          Remove
-                        </button>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <h3>No records match that filter yet.</h3>
-                <p>
-                  Try a different keyword, or use the album search above to add
-                  something new to the wall.
-                </p>
-              </div>
-            )}
-          </section>
-
-          <aside className="side-column">
-            <section className="widget-card search-priority-card search-priority-card--sidebar">
-              <div className="search-priority-copy">
-                <p className="eyebrow">Search and add</p>
-                <h1>Find a record</h1>
-                <p className="hero-copy">
-                  Search, choose the right pressing, and add it straight to the wall.
-                </p>
-              </div>
-
-              <div className="search-stack search-stack--priority">
-                <label className="sr-only" htmlFor="catalog-search-input">
-                  Search the album catalog
-                </label>
-                <input
-                  id="catalog-search-input"
-                  name="catalogQuery"
-                  type="text"
-                  value={catalogQuery}
-                  onChange={(event) => setCatalogQuery(event.target.value)}
-                  placeholder="Search artist or album..."
-                  autoComplete="off"
+          {filteredWishlist.length ? (
+            <div className="record-grid" role="list">
+              {filteredWishlist.map((record, index) => (
+                <RecordCard
+                  key={record.id}
+                  index={index}
+                  isDragging={draggedId === record.id}
+                  isSelected={selectedRecord?.id === record.id}
+                  onDragEnd={() => setDraggedId('')}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragStart={(event) => handleDragStart(event, record.id)}
+                  onDrop={(event) => handleDrop(event, record.id)}
+                  onRemove={() => handleRemove(record.id)}
+                  onSelect={() => setSelectedId(record.id)}
+                  record={record}
                 />
-
-                {catalogQuery.trim() ? (
-                  <div className="search-dropdown" role="listbox" aria-label="Album results">
-                    {catalogLoading ? (
-                      <p className="dropdown-status">Searching the stacks...</p>
-                    ) : null}
-
-                    {!catalogLoading && catalogError ? (
-                      <p className="dropdown-status is-error">{catalogError}</p>
-                    ) : null}
-
-                    {!catalogLoading && !catalogError && catalogResults.length > 0
-                      ? catalogResults.map((result) => (
-                          <button
-                            key={result.id}
-                            className="dropdown-option"
-                            type="button"
-                            onClick={() => handleAddCatalogResult(result)}
-                          >
-                            {result.coverUrl ? (
-                              <img
-                                className="dropdown-cover"
-                                src={result.coverUrl}
-                                alt=""
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <div
-                                className="dropdown-cover fallback-cover"
-                                aria-hidden="true"
-                              >
-                                <span>{result.album.slice(0, 1)}</span>
-                              </div>
-                            )}
-
-                            <span className="dropdown-copy">
-                              <strong>{result.album}</strong>
-                              <span>{result.artist || 'Unknown artist'}</span>
-                              <span>
-                                {result.year || 'Year unknown'}
-                                {result.genre ? ` • ${result.genre}` : ''}
-                              </span>
-                            </span>
-                          </button>
-                        ))
-                      : null}
-
-                    {!catalogLoading &&
-                    !catalogError &&
-                    catalogQuery.trim() &&
-                    catalogResults.length === 0 ? (
-                      <p className="dropdown-status">No matches yet for that search.</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="catalog-prompt">Start typing and the drop list opens here.</p>
-                )}
-
-                <p className="search-status-note">{statusMessage}</p>
-              </div>
-            </section>
-
-            <section className="spotlight-card">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Featured record</p>
-                  <h2>Side A Spotlight</h2>
-                </div>
-              </div>
-
-              {selectedVinyl ? (
-                <article className="spotlight-body">
-                  <div className="cover-stack spotlight-art">
-                    {selectedVinyl.coverUrl ? (
-                      <img
-                        className="spotlight-cover"
-                        src={selectedVinyl.coverUrl}
-                        alt={`${selectedVinyl.album} cover`}
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="spotlight-cover fallback-cover" aria-hidden="true">
-                        <span>{selectedVinyl.album.slice(0, 1)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="spotlight-copy">
-                    <p className="spotlight-kicker">
-                      {selectedVinyl.artist || 'Unknown artist'}
-                    </p>
-                    <h3>{selectedVinyl.album}</h3>
-                    <div className="spotlight-tags">
-                      <span>{selectedVinyl.year || 'Year unknown'}</span>
-                      <span>{selectedVinyl.genre || 'Genre TBD'}</span>
-                    </div>
-                    <p>
-                      {selectedVinyl.notes ||
-                        'No notes yet. This card is now mainly here to spotlight the cover and the basic album info.'}
-                    </p>
-                  </div>
-
-                  <div className="spotlight-actions">
-                    <a
-                      className="primary-button"
-                      href={selectedVinyl.amazonUrl || buildAmazonSearchUrl(selectedVinyl)}
-                      target="_blank"
-                      rel="noreferrer"
-                      referrerPolicy="no-referrer"
-                    >
-                      {selectedVinyl.amazonUrl ? 'Open Amazon listing' : 'Search Amazon'}
-                    </a>
-                  </div>
-                </article>
-              ) : (
-                <div className="empty-state spotlight-empty">
-                  <h3>Your wall is ready for its first record.</h3>
-                  <p>Search for an album on the right and click a match to add it instantly.</p>
-                </div>
-              )}
-            </section>
-          </aside>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={wishlist.length ? 'No matches on the wall.' : 'Your wall is empty.'}
+              copy={
+                wishlist.length
+                  ? 'Try a different filter, or add a new record from search.'
+                  : 'Search for an album and choose a result to start the wall.'
+              }
+            />
+          )}
         </section>
-      </div>
+
+        <aside className="side-rail">
+          <SearchPanel
+            catalogError={catalogError}
+            catalogLoading={catalogLoading}
+            catalogQuery={catalogQuery}
+            catalogResults={catalogResults}
+            onAddResult={handleAddResult}
+            onQueryChange={setCatalogQuery}
+            statusMessage={statusMessage}
+          />
+          <Spotlight record={selectedRecord} />
+        </aside>
+      </section>
     </main>
   )
 }
 
-export default App
+function RecordCard({
+  index,
+  isDragging,
+  isSelected,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
+  onRemove,
+  onSelect,
+  record,
+}) {
+  return (
+    <article
+      className={`record-card${isSelected ? ' is-selected' : ''}${
+        isDragging ? ' is-dragging' : ''
+      }`}
+      draggable
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragStart={onDragStart}
+      onDrop={onDrop}
+      role="listitem"
+    >
+      <button className="record-main" type="button" onClick={onSelect}>
+        <span className="rank-badge">#{String(index + 1).padStart(2, '0')}</span>
+        <AlbumDisplay record={record} size="card" />
+        <span className="record-copy">
+          <strong>{record.album}</strong>
+          <span>{record.artist || 'Unknown artist'}</span>
+          <span>
+            {record.year || 'Year unknown'}
+            {record.genre ? ` - ${record.genre}` : ''}
+          </span>
+        </span>
+      </button>
 
-function reorderVisibleSubset(records, visibleIds, sourceId, targetId) {
+      <div className="record-actions">
+        <a
+          href={record.amazonUrl || buildAmazonSearchUrl(record)}
+          target="_blank"
+          rel="noreferrer"
+          referrerPolicy="no-referrer"
+        >
+          Search Amazon
+        </a>
+        <button type="button" onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function SearchPanel({
+  catalogError,
+  catalogLoading,
+  catalogQuery,
+  catalogResults,
+  onAddResult,
+  onQueryChange,
+  statusMessage,
+}) {
+  return (
+    <section className="search-panel">
+      <div className="panel-heading panel-heading--stacked">
+        <p className="eyebrow">Search and add</p>
+        <h2>Find a record</h2>
+      </div>
+
+      <label className="search-field">
+        <span className="sr-only">Search the album catalog</span>
+        <input
+          type="text"
+          value={catalogQuery}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search artist or album..."
+          autoComplete="off"
+        />
+      </label>
+
+      {catalogQuery.trim() ? (
+        <div className="result-list" role="listbox" aria-label="Album results">
+          {catalogLoading ? <p className="result-status">Searching...</p> : null}
+          {!catalogLoading && catalogError ? (
+            <p className="result-status is-error">{catalogError}</p>
+          ) : null}
+          {!catalogLoading && !catalogError && catalogResults.length
+            ? catalogResults.map((result) => (
+                <button
+                  key={result.id}
+                  className="result-option"
+                  type="button"
+                  onClick={() => onAddResult(result)}
+                >
+                  <CoverThumb record={result} />
+                  <span>
+                    <strong>{result.album}</strong>
+                    <span>{result.artist || 'Unknown artist'}</span>
+                    <span>
+                      {result.year || 'Year unknown'}
+                      {result.genre ? ` - ${result.genre}` : ''}
+                    </span>
+                  </span>
+                </button>
+              ))
+            : null}
+          {!catalogLoading && !catalogError && !catalogResults.length ? (
+            <p className="result-status">No matches yet.</p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="search-hint">Type to open album results.</p>
+      )}
+
+      <p className="status-line">{statusMessage}</p>
+    </section>
+  )
+}
+
+function Spotlight({ record }) {
+  return (
+    <section className="spotlight-panel" aria-label="Featured record">
+      <div className="panel-heading panel-heading--stacked">
+        <p className="eyebrow">Featured record</p>
+        <h2>Side A Spotlight</h2>
+      </div>
+
+      {record ? (
+        <article className="spotlight-content">
+          <AlbumDisplay record={record} size="spotlight" />
+          <div className="spotlight-copy">
+            <p className="artist-kicker">{record.artist || 'Unknown artist'}</p>
+            <h3>{record.album}</h3>
+            <div className="tag-row">
+              <span>{record.year || 'Year unknown'}</span>
+              <span>{record.genre || 'Genre TBD'}</span>
+            </div>
+            <p>
+              {record.notes ||
+                'No notes yet. This space keeps the cover and album details front and center.'}
+            </p>
+          </div>
+          <a
+            className="primary-link"
+            href={record.amazonUrl || buildAmazonSearchUrl(record)}
+            target="_blank"
+            rel="noreferrer"
+            referrerPolicy="no-referrer"
+          >
+            Search Amazon
+          </a>
+        </article>
+      ) : (
+        <EmptyState
+          title="Ready for the first record."
+          copy="Search the catalog and add a match to spotlight it here."
+        />
+      )}
+    </section>
+  )
+}
+
+function AlbumDisplay({ record, size }) {
+  return (
+    <span className={`album-display album-display--${size}`} aria-hidden="true">
+      <span className="vinyl-disc">
+        <span className="vinyl-label"></span>
+      </span>
+      <CoverThumb record={record} />
+    </span>
+  )
+}
+
+function CoverThumb({ record }) {
+  return record.coverUrl ? (
+    <img
+      className="cover-thumb"
+      src={record.coverUrl}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+    />
+  ) : (
+    <span className="cover-thumb cover-thumb--fallback">
+      {record.album?.slice(0, 1) || '?'}
+    </span>
+  )
+}
+
+function MiniRecord() {
+  return (
+    <span className="mini-record" aria-hidden="true">
+      <span></span>
+    </span>
+  )
+}
+
+function EmptyState({ title, copy }) {
+  return (
+    <div className="empty-state">
+      <h3>{title}</h3>
+      <p>{copy}</p>
+    </div>
+  )
+}
+
+function reorderVisibleRecords(records, visibleIds, sourceId, targetId) {
   const visibleIdSet = new Set(visibleIds)
   const visibleRecords = records.filter((record) => visibleIdSet.has(record.id))
   const sourceIndex = visibleRecords.findIndex((record) => record.id === sourceId)
@@ -677,19 +462,20 @@ function reorderVisibleSubset(records, visibleIds, sourceId, targetId) {
     return records
   }
 
-  const reorderedVisibleRecords = [...visibleRecords]
-  const [movedRecord] = reorderedVisibleRecords.splice(sourceIndex, 1)
-  reorderedVisibleRecords.splice(targetIndex, 0, movedRecord)
+  const nextVisible = [...visibleRecords]
+  const [movedRecord] = nextVisible.splice(sourceIndex, 1)
+  nextVisible.splice(targetIndex, 0, movedRecord)
 
-  let reorderedIndex = 0
-
+  let nextIndex = 0
   return records.map((record) => {
     if (!visibleIdSet.has(record.id)) {
       return record
     }
 
-    const nextRecord = reorderedVisibleRecords[reorderedIndex]
-    reorderedIndex += 1
+    const nextRecord = nextVisible[nextIndex]
+    nextIndex += 1
     return nextRecord
   })
 }
+
+export default App

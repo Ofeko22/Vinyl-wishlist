@@ -1,12 +1,18 @@
 # Wax Wishlist
 
-Static React app for showing a vinyl wishlist with cover art, quick filtering, and Amazon lookup links.
+Static React app for showing a vinyl wishlist with cover art, quick filtering, ranking, and Amazon lookup links.
+
+## Version 2.0
+
+Version 2.0 is a clean rebuild of the wishlist UI. It keeps the search, local storage, ranking, Amazon links, and spotlight flow, but replaces the older layered glass-card design with simpler, more stable album art and vinyl-disc layers.
 
 ## What it does
 
 - Shows your wishlist as a searchable wall of record cards
 - Searches Apple's public album catalog from inside the app as you type
 - Lets you add an album directly from the search dropdown with one click
+- Lets you drag cards to rank the wall
+- Keeps a selected record in the Side A Spotlight panel
 - Uses direct Amazon links when you provide them, or falls back to an Amazon search link
 - Stores your current list in `localStorage`
 
