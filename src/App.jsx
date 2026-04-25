@@ -24,8 +24,11 @@ function App() {
   const [catalogError, setCatalogError] = useState('')
   const [statusMessage, setStatusMessage] = useState(EMPTY_STATUS)
   const [draggedId, setDraggedId] = useState('')
+  const [dragTargetId, setDragTargetId] = useState('')
+  const [newRecordId, setNewRecordId] = useState('')
   const abortRef = useRef(null)
   const requestRef = useRef(0)
+  const newRecordTimeoutRef = useRef(0)
 
   const deferredFilter = useDeferredValue(filterQuery.trim())
   const filteredWishlist = useMemo(
@@ -113,6 +116,7 @@ function App() {
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
+      window.clearTimeout(newRecordTimeoutRef.current)
     }
   }, [])
 
@@ -137,6 +141,11 @@ function App() {
 
     setWishlist((current) => [nextRecord, ...current])
     setSelectedId(nextRecord.id)
+    window.clearTimeout(newRecordTimeoutRef.current)
+    setNewRecordId(nextRecord.id)
+    newRecordTimeoutRef.current = window.setTimeout(() => {
+      setNewRecordId((current) => (current === nextRecord.id ? '' : current))
+    }, 900)
     setCatalogQuery('')
     setCatalogResults([])
     setCatalogError('')
@@ -156,6 +165,15 @@ function App() {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', recordId)
     setDraggedId(recordId)
+    setDragTargetId(recordId)
+  }
+
+  function handleDragOver(event, recordId) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    if (dragTargetId !== recordId) {
+      setDragTargetId(recordId)
+    }
   }
 
   function handleDrop(event, targetId) {
@@ -163,15 +181,20 @@ function App() {
     const sourceId = draggedId || event.dataTransfer.getData('text/plain')
 
     if (!sourceId || sourceId === targetId) {
-      setDraggedId('')
+      clearDragState()
       return
     }
 
     const visibleIds = filteredWishlist.map((record) => record.id)
     setWishlist((current) => reorderVisibleRecords(current, visibleIds, sourceId, targetId))
     setSelectedId(sourceId)
-    setDraggedId('')
+    clearDragState()
     setStatusMessage('Updated the wall order.')
+  }
+
+  function clearDragState() {
+    setDraggedId('')
+    setDragTargetId('')
   }
 
   return (
@@ -227,9 +250,13 @@ function App() {
                   key={record.id}
                   index={index}
                   isDragging={draggedId === record.id}
+                  isDragTarget={
+                    Boolean(draggedId) && dragTargetId === record.id && draggedId !== record.id
+                  }
+                  isNew={newRecordId === record.id}
                   isSelected={selectedRecord?.id === record.id}
-                  onDragEnd={() => setDraggedId('')}
-                  onDragOver={(event) => event.preventDefault()}
+                  onDragEnd={clearDragState}
+                  onDragOver={(event) => handleDragOver(event, record.id)}
                   onDragStart={(event) => handleDragStart(event, record.id)}
                   onDrop={(event) => handleDrop(event, record.id)}
                   onRemove={() => handleRemove(record.id)}
@@ -270,6 +297,8 @@ function App() {
 function RecordCard({
   index,
   isDragging,
+  isDragTarget,
+  isNew,
   isSelected,
   onDragEnd,
   onDragOver,
@@ -283,7 +312,7 @@ function RecordCard({
     <article
       className={`record-card${isSelected ? ' is-selected' : ''}${
         isDragging ? ' is-dragging' : ''
-      }`}
+      }${isDragTarget ? ' is-drag-target' : ''}${isNew ? ' is-new' : ''}`}
       draggable
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}

@@ -93,6 +93,7 @@ p {
   width: min(1620px, 100%);
   margin: 0 auto;
   padding: clamp(20px, 3vw, 48px);
+  animation: appReveal 0.55s ease-out both;
 }
 
 .app-header {
@@ -112,6 +113,7 @@ p {
   box-shadow:
     var(--shell-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  animation: panelLift 0.56s ease-out 0.04s both;
 }
 
 .brand-lockup {
@@ -132,6 +134,7 @@ p {
   box-shadow:
     0 10px 20px rgba(24, 37, 52, 0.18),
     inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: miniRecordFloat 5.5s ease-in-out infinite;
 }
 
 .mini-record--2 {
@@ -218,11 +221,13 @@ h2 {
   box-shadow:
     var(--shell-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  animation: panelLift 0.56s ease-out both;
 }
 
 .wall-panel {
   min-height: min(800px, calc(100vh - 150px));
   padding: clamp(24px, 3vw, 34px);
+  animation-delay: 0.1s;
 }
 
 .side-rail {
@@ -235,6 +240,14 @@ h2 {
 .search-panel,
 .spotlight-panel {
   padding: clamp(22px, 2vw, 30px);
+}
+
+.search-panel {
+  animation-delay: 0.16s;
+}
+
+.spotlight-panel {
+  animation-delay: 0.22s;
 }
 
 .panel-heading {
@@ -341,7 +354,9 @@ input:focus {
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
-    background-color 0.18s ease;
+    background-color 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .record-card:hover,
@@ -353,7 +368,21 @@ input:focus {
 }
 
 .record-card.is-dragging {
-  opacity: 0.5;
+  opacity: 0.52;
+  transform: scale(0.985);
+}
+
+.record-card.is-drag-target {
+  border-color: rgba(95, 158, 209, 0.86);
+  box-shadow:
+    0 22px 44px rgba(39, 59, 79, 0.18),
+    0 0 0 4px rgba(95, 158, 209, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  animation: dropTargetPulse 0.9s ease-in-out infinite;
+}
+
+.record-card.is-new {
+  animation: newRecordPop 0.58s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
 .record-main {
@@ -515,6 +544,8 @@ input:focus {
   max-height: 440px;
   margin-top: 12px;
   overflow: auto;
+  animation: dropdownReveal 0.24s ease-out both;
+  transform-origin: top center;
 }
 
 .result-option {
@@ -527,10 +558,14 @@ input:focus {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .result-option:hover {
   background: #edf6fd;
+  transform: translateY(-1px);
 }
 
 .result-option .cover-thumb {
@@ -640,6 +675,92 @@ input:focus {
 
 .empty-state h3 {
   margin-bottom: 6px;
+}
+
+@keyframes appReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes panelLift {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes newRecordPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.98);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropTargetPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.012);
+  }
+}
+
+@keyframes dropdownReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes miniRecordFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .sr-only {
