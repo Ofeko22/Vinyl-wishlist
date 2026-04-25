@@ -48,10 +48,21 @@ function buildArtworkUrl(result) {
     return ''
   }
 
-  return rawUrl
+  const upgradedUrl = rawUrl
     .replace(/^http:\/\//, 'https://')
     .replace(/:\/\/is(\d+)\./, '://is$1-ssl.')
     .replace(/\/\d+x\d+bb\./, '/600x600bb.')
+
+  return sanitizeArtworkUrl(upgradedUrl)
+}
+
+function sanitizeArtworkUrl(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' ? url.toString() : ''
+  } catch {
+    return ''
+  }
 }
 
 function getYear(value) {
