@@ -341,6 +341,7 @@ input:focus {
 
 .record-actions a,
 .record-actions button,
+.store-links a,
 .primary-link {
   display: inline-flex;
   align-items: center;
@@ -366,6 +367,7 @@ input:focus {
 
 .record-actions a:hover,
 .record-actions button:hover,
+.store-links a:hover,
 .primary-link:hover {
   border-color: var(--blue);
   background: var(--blue-soft);
@@ -491,6 +493,12 @@ input:focus {
 
 .primary-link:hover {
   color: #243345;
+}
+
+.store-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .empty-state {

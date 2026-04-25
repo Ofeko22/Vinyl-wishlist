@@ -95,6 +95,20 @@ export function buildAmazonSearchUrl(record) {
   return `https://www.amazon.com/s?k=${encodeURIComponent(query)}`
 }
 
+export function buildBeatnikSearchUrl(record) {
+  const query = buildRecordStoreQuery(record)
+  return `https://www.beatnik.co.il/?s=${encodeURIComponent(query)}&post_type=product`
+}
+
+export function buildThirdEarSearchUrl(record) {
+  const query = buildRecordStoreQuery(record)
+  return `https://third-ear.com/search/${encodeURIComponent(query)}/`
+}
+
+function buildRecordStoreQuery(record) {
+  return [record.artist, record.album].filter(Boolean).join(' ')
+}
+
 function readValue(record, field) {
   for (const alias of FIELD_ALIASES[field]) {
     if (alias in record && record[alias] != null) {

@@ -2,6 +2,8 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { searchAlbumCatalog } from './lib/albumCatalog.js'
 import {
   buildAmazonSearchUrl,
+  buildBeatnikSearchUrl,
+  buildThirdEarSearchUrl,
   buildVinylFingerprint,
   loadWishlist,
   normalizeVinyl,
@@ -289,7 +291,23 @@ function RecordCard({
           rel="noreferrer"
           referrerPolicy="no-referrer"
         >
-          Search Amazon
+          Amazon
+        </a>
+        <a
+          href={buildBeatnikSearchUrl(record)}
+          target="_blank"
+          rel="noreferrer"
+          referrerPolicy="no-referrer"
+        >
+          Beatnik
+        </a>
+        <a
+          href={buildThirdEarSearchUrl(record)}
+          target="_blank"
+          rel="noreferrer"
+          referrerPolicy="no-referrer"
+        >
+          Third Ear
         </a>
         <button type="button" onClick={onRemove}>
           Remove
@@ -388,15 +406,33 @@ function Spotlight({ record }) {
                 'No notes yet. This space keeps the cover and album details front and center.'}
             </p>
           </div>
-          <a
-            className="primary-link"
-            href={record.amazonUrl || buildAmazonSearchUrl(record)}
-            target="_blank"
-            rel="noreferrer"
-            referrerPolicy="no-referrer"
-          >
-            Search Amazon
-          </a>
+          <div className="store-links" aria-label="Search record stores">
+            <a
+              className="primary-link"
+              href={record.amazonUrl || buildAmazonSearchUrl(record)}
+              target="_blank"
+              rel="noreferrer"
+              referrerPolicy="no-referrer"
+            >
+              Amazon
+            </a>
+            <a
+              href={buildBeatnikSearchUrl(record)}
+              target="_blank"
+              rel="noreferrer"
+              referrerPolicy="no-referrer"
+            >
+              Beatnik
+            </a>
+            <a
+              href={buildThirdEarSearchUrl(record)}
+              target="_blank"
+              rel="noreferrer"
+              referrerPolicy="no-referrer"
+            >
+              Third Ear
+            </a>
+          </div>
         </article>
       ) : (
         <EmptyState
