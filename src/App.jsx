@@ -38,6 +38,14 @@ function App() {
     filteredWishlist[0] ??
     wishlist[0] ??
     null
+  const headerRecords =
+    wishlist.slice(0, 5).length > 0
+      ? wishlist.slice(0, 5)
+      : Array.from({ length: 4 }, (_, index) => ({
+          id: `placeholder-${index}`,
+          album: '',
+          coverUrl: '',
+        }))
 
   useEffect(() => {
     saveWishlist(wishlist)
@@ -173,13 +181,19 @@ function App() {
           <MiniRecord />
           <div>
             <p className="eyebrow">Vinyl Wishlist</p>
-            <h1>Wishlist wall</h1>
+            <h1>Wax Wishlist</h1>
           </div>
         </div>
-        <p className="header-copy">
-          A clean shelf for albums you want next. Search, add, rank, and keep
-          one record in the spotlight.
-        </p>
+        <div className="top-vinyl-strip" aria-hidden="true">
+          {headerRecords.map((record, index) => (
+            <MiniRecord
+              key={record.id}
+              coverUrl={record.coverUrl}
+              label={record.album?.slice(0, 1)}
+              variant={(index % 4) + 1}
+            />
+          ))}
+        </div>
       </header>
 
       <section className="workspace">
@@ -187,17 +201,23 @@ function App() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">The stack</p>
-              <h2>{wishlist.length} records</h2>
+              <h2>Wishlist wall</h2>
             </div>
-            <label className="filter-field">
-              <span>Filter wall</span>
-              <input
-                type="search"
-                value={filterQuery}
-                onChange={(event) => setFilterQuery(event.target.value)}
-                placeholder="Artist, album, year..."
-              />
-            </label>
+            <div className="wall-tools">
+              <p className="wall-copy">
+                Drag cards to rank them. Search a store from any record, or keep
+                the best one glowing in Side A.
+              </p>
+              <label className="filter-field">
+                <span>Filter wall</span>
+                <input
+                  type="search"
+                  value={filterQuery}
+                  onChange={(event) => setFilterQuery(event.target.value)}
+                  placeholder="Search wall"
+                />
+              </label>
+            </div>
           </div>
 
           {filteredWishlist.length ? (
@@ -471,10 +491,12 @@ function CoverThumb({ record }) {
   )
 }
 
-function MiniRecord() {
+function MiniRecord({ coverUrl = '', label = '', variant = 1 }) {
   return (
-    <span className="mini-record" aria-hidden="true">
-      <span></span>
+    <span className={`mini-record mini-record--${variant}`} aria-hidden="true">
+      <span>
+        {coverUrl ? <img src={coverUrl} alt="" referrerPolicy="no-referrer" /> : label}
+      </span>
     </span>
   )
 }
